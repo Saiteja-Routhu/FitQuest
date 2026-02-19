@@ -1,0 +1,82 @@
+### ---------------------------------------------------
+### TEST SUITE: FitQuest Guild System
+### ---------------------------------------------------
+
+### 1. HIGH COUNCIL LOGIN (Admin)
+# Expected: 200 OK, Role: HIGH_COUNCIL
+POST http://127.0.0.1:8000/api/users/login/
+Content-Type: application/json
+
+{
+  "username": "saitejarouthu",
+  "password": "Saiteja@007",
+  "role": "HIGH_COUNCIL"
+}
+
+### ---------------------------------------------------
+
+### 2. GENERATE COACH KEY (Admin Only)
+# NOTE: Copy the "key" from the response for the next step!
+POST http://127.0.0.1:8000/api/users/generate-key/
+Content-Type: application/json
+Authorization: Basic saitejarouthu:your_password_here
+
+### ---------------------------------------------------
+
+### 3. RECRUIT REGISTRATION (Standard User)
+# Expected: 201 Created
+POST http://127.0.0.1:8000/api/users/register/
+Content-Type: application/json
+
+{
+  "username": "Recruit_Alex",
+  "email": "alex@fitquest.com",
+  "password": "recruitpass123",
+  "role": "RECRUIT",
+  "height": 175,
+  "weight": 70,
+  "activity_level": "Moderately Active",
+  "goal": "Muscle Gain"
+}
+
+### ---------------------------------------------------
+
+### 4. GUILD MASTER REGISTRATION (Coach)
+# REPLACE '12345' with the key you got from Step 2
+POST http://127.0.0.1:8000/api/users/register/
+Content-Type: application/json
+
+{
+  "username": "Coach_Leonidas",
+  "email": "leonidas@sparta.com",
+  "password": "coachpass123",
+  "role": "GUILD_MASTER",
+  "access_key": "66970"
+}
+
+### ---------------------------------------------------
+
+### 5. SECURITY CHECK: Fake Coach (No Key)
+# Expected: 400 Bad Request (Invalid Key)
+POST http://127.0.0.1:8000/api/users/register/
+Content-Type: application/json
+
+{
+  "username": "Fake_Coach",
+  "password": "password123",
+  "role": "GUILD_MASTER",
+  "access_key": "00000"
+}
+
+### ---------------------------------------------------
+
+### 6. LOGIN TEST (Recruit)
+# Expected: 200 OK
+POST http://127.0.0.1:8000/api/users/login/
+Content-Type: application/json
+
+{
+  "username": "Recruit_Alex",
+  "password": "recruitpass123",
+  "role": "RECRUIT"
+}
