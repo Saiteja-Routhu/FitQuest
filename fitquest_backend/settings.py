@@ -105,6 +105,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'Saiteja@007'),
         'HOST':     os.environ.get('DB_HOST',     'localhost'),
         'PORT':     os.environ.get('DB_PORT',     '5432'),
+        'CONN_MAX_AGE': 0,  # required for Supabase connection pooler
     }
 }
 
