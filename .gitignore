@@ -1,0 +1,58 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Django
+staticfiles/
+media/
+local_settings.py
+db.sqlite3
+
+# Environment variables (NEVER commit these)
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Byte-compiled / cache
+**/__pycache__/
+*.cpython-*.pyc
+
+# Flutter / Dart
+fitquest_app/.dart_tool/
+fitquest_app/.flutter-plugins
+fitquest_app/.flutter-plugins-dependencies
+fitquest_app/.packages
+fitquest_app/build/
+fitquest_app/.pub-cache/
+fitquest_app/.pub/
+fitquest_app/pubspec.lock
+
+# Generated files
+repomix-output.xml
+
+# Claude local config
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

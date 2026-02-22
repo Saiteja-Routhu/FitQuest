@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'api_service.dart';
 
@@ -65,12 +66,25 @@ class NutritionService {
     if (response.statusCode != 204) throw Exception('Failed to delete plan');
   }
 
-  static Future<void> assignDietPlan(String username, String password, int planId, List<int> recruitIds) async {
+  static Future<void> assignDietPlan(
+    String username,
+    String password,
+    int planId,
+    List<int> recruitIds, {
+    int xpReward = 100,
+    int coinReward = 10,
+  }) async {
     String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
     final response = await http.post(
       Uri.parse('$baseUrl/nutrition/assign/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-      body: jsonEncode({"plan_id": planId, "recruit_ids": recruitIds}),
+      body: jsonEncode({
+        "plan_id": planId,
+        "recruit_ids": recruitIds,
+        "xp_reward": xpReward,
+        "coin_reward": coinReward,
+        "auto_quest": true,
+      }),
     );
     if (response.statusCode != 200) throw Exception('Failed to assign diet');
   }
@@ -105,5 +119,119 @@ class NutritionService {
       body: jsonEncode({"day": day, "plan_id": planId}),
     );
     if (response.statusCode != 200) throw Exception('Failed to set schedule');
+  }
+
+  // --- RECIPES ---
+  static Future<List<dynamic>> fetchRecipes(String username, String password) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/nutrition/recipes/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data is List ? data : data['results'] ?? [];
+    }
+    throw Exception('Failed to load recipes');
+  }
+
+  static Future<void> createRecipe(String username, String password, Map<String, dynamic> data) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.post(
+      Uri.parse('$baseUrl/nutrition/recipes/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+      body: jsonEncode(data),
+    );
+    if (response.statusCode != 201) throw Exception('Failed to create recipe');
+  }
+
+  static Future<void> deleteRecipe(String username, String password, int recipeId) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.delete(
+      Uri.parse('$baseUrl/nutrition/recipes/$recipeId/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    );
+    if (response.statusCode != 204) throw Exception('Failed to delete recipe');
+  }
+
+  // Fetch Assigned Diet Plans (Recruit)
+  static Future<List<dynamic>> fetchAssignedDietPlans(String username, String password) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/nutrition/assigned/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    }
+    throw Exception('Failed to load assigned diet plans');
+  }
+
+  // Fetch own schedule (Recruit, Phase 4)
+  static Future<List<dynamic>> fetchMySchedule(String username, String password) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/nutrition/my-schedule/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    }
+    throw Exception('Failed to load my schedule');
+  }
+
+  // --- MEAL COMPLETION (Phase 6) ---
+
+  static Future<Map<String, dynamic>> completeMeal(
+    String username,
+    String password,
+    String mealName, {
+    int? dietPlanId,
+    File? photo,
+  }) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final uri = Uri.parse('$baseUrl/nutrition/complete-meal/');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = basicAuth;
+    request.fields['meal_name'] = mealName;
+    if (dietPlanId != null) request.fields['diet_plan_id'] = dietPlanId.toString();
+    if (photo != null) {
+      request.files.add(await http.MultipartFile.fromPath('photo', photo.path));
+    }
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 201) {
+      return Map<String, dynamic>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to complete meal: ${response.body}');
+  }
+
+  static Future<List<dynamic>> fetchMealCompletions(
+    String username,
+    String password,
+    String date,
+  ) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/nutrition/meal-completions/?date=$date'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Failed to load meal completions');
+  }
+
+  static Future<void> deleteMealCompletion(
+    String username,
+    String password,
+    int id,
+  ) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.delete(
+      Uri.parse('$baseUrl/nutrition/meal-completions/$id/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    );
+    if (response.statusCode != 204) throw Exception('Failed to undo meal completion');
   }
 }

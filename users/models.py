@@ -27,6 +27,7 @@ class CustomUser(AbstractUser):
     ROLE_CHOICES = (
         ('RECRUIT', 'Recruit'),
         ('GUILD_MASTER', 'Guild Master'),
+        ('SUPER_COACH', 'Super Coach'),
         ('HIGH_COUNCIL', 'High Council'),
     )
 
@@ -55,6 +56,16 @@ class CustomUser(AbstractUser):
         related_name='recruits'
     )
 
+    # Super Coach supervises regular coaches
+    super_coach = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'SUPER_COACH'},
+        related_name='managed_coaches',
+    )
+
     # New Assignment Flag (For the notification panel)
     is_new_assignment = models.BooleanField(default=False)
 
@@ -66,10 +77,15 @@ class CustomUser(AbstractUser):
 
 # --- COACH ACCESS KEYS ---
 class CoachAccessKey(models.Model):
+    KEY_TYPE_CHOICES = [('COACH', 'Coach'), ('SUPER_COACH', 'Super Coach')]
+
     key = models.CharField(max_length=10, unique=True)
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     used_by = models.CharField(max_length=150, null=True, blank=True)
+    key_type = models.CharField(
+        max_length=20, choices=KEY_TYPE_CHOICES, default='COACH'
+    )
 
     @staticmethod
     def generate_key():

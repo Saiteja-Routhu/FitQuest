@@ -36,16 +36,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         weight = validated_data.pop('weight', None)
         role = validated_data.get('role', 'RECRUIT')
 
-        if role == 'GUILD_MASTER':
+        if role in ('GUILD_MASTER', 'SUPER_COACH'):
+            required_key_type = 'COACH' if role == 'GUILD_MASTER' else 'SUPER_COACH'
             if not access_key:
-                raise serializers.ValidationError({"access_key": "Coach access key is required."})
+                raise serializers.ValidationError({"access_key": "Access key is required."})
             try:
-                key_obj = CoachAccessKey.objects.get(key=access_key, is_used=False)
+                key_obj = CoachAccessKey.objects.get(
+                    key=access_key, is_used=False, key_type=required_key_type)
                 key_obj.is_used = True
                 key_obj.used_by = validated_data['username']
                 key_obj.save()
             except CoachAccessKey.DoesNotExist:
-                raise serializers.ValidationError({"access_key": "Invalid or used access key."})
+                raise serializers.ValidationError({"access_key": "Invalid or used access key for this role."})
 
         user = CustomUser.objects.create_user(**validated_data)
 

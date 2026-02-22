@@ -33,6 +33,7 @@ class WorkoutPlan(models.Model):
     coach = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='created_plans')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
+    day_names = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     assigned_to = models.ManyToManyField(CustomUser, related_name='assigned_plans', blank=True)
 
@@ -41,12 +42,19 @@ class WorkoutPlan(models.Model):
 
 
 class WorkoutExercise(models.Model):
+    DAY_CHOICES = [
+        ('Monday', 'Monday'), ('Tuesday', 'Tuesday'), ('Wednesday', 'Wednesday'),
+        ('Thursday', 'Thursday'), ('Friday', 'Friday'), ('Saturday', 'Saturday'),
+        ('Sunday', 'Sunday'), ('Any', 'Any'),
+    ]
+
     plan = models.ForeignKey(WorkoutPlan, on_delete=models.CASCADE, related_name='workout_exercises')
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
     sets = models.IntegerField(default=3)
     reps = models.CharField(max_length=20, default="10-12")
     rest_time = models.IntegerField(help_text="Seconds", default=60)
     order = models.IntegerField(default=1)
+    day_label = models.CharField(max_length=10, choices=DAY_CHOICES, default='Any')
 
     class Meta:
         ordering = ['order']

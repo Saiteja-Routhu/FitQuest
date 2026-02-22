@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,10 +23,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i24bh87i=+0kjf=u&(6#c!jpi)94ku)h=!q^9cd#-&87bwk@7*'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-i24bh87i=+0kjf=u&(6#c!jpi)94ku)h=!q^9cd#-&87bwk@7*')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
@@ -38,7 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'cloudinary_storage',
     'django.contrib.staticfiles',
+    'cloudinary',
 
     # Third-party libraries
     'rest_framework',
@@ -54,11 +57,15 @@ INSTALLED_APPS = [
     'analytics',
     'nutrition',
     'ai_services',
+    'quests',
+    'shop',
+    'chat',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -91,14 +98,13 @@ WSGI_APPLICATION = 'fitquest_backend.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'fitquest_db',
-        'USER': 'postgres',
-        'PASSWORD': 'Saiteja@007',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get(
+            'DATABASE_URL',
+            'postgresql://postgres:Saiteja@007@localhost:5432/fitquest_db'
+        ),
+        conn_max_age=600,
+    )
 }
 
 
@@ -137,8 +143,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media Configuration (For Profile Pictures)
+# Media Configuration (Cloudinary for cloud storage, local fallback)
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+    'API_KEY':    os.environ.get('CLOUDINARY_API_KEY', ''),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', ''),
+}
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -169,3 +183,6 @@ SIMPLE_JWT = {
 
 # CORS Config
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Gemini API Key (used by analytics/views.py for body scan analysis)
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyDQnQBt_F4LCxyxTu_IInw7NKi8VytygdY')

@@ -1,9 +1,11 @@
+from datetime import date as today_date
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db import transaction
-from .models import FoodItem, DietPlan, Meal, MealItem, Supplement, DietSchedule
-from .serializers import FoodItemSerializer, DietPlanSerializer, DietScheduleSerializer
+from .models import FoodItem, DietPlan, Meal, MealItem, Supplement, DietSchedule, Recipe, RecipeIngredient, MealCompletion
+from .serializers import FoodItemSerializer, DietPlanSerializer, DietScheduleSerializer, RecipeSerializer
+from quests.models import Quest
 
 
 # 1. PANTRY (List & Create)
@@ -94,12 +96,33 @@ class AssignDietView(APIView):
     def post(self, request):
         plan_id = request.data.get('plan_id')
         recruit_ids = request.data.get('recruit_ids')
+        xp_reward = int(request.data.get('xp_reward', 100))
+        coin_reward = int(request.data.get('coin_reward', 10))
+        auto_quest = request.data.get('auto_quest', True)
 
         try:
             plan = DietPlan.objects.get(id=plan_id, coach=request.user)
             recruits = plan.coach.recruits.filter(id__in=recruit_ids)
             plan.assigned_to.add(*recruits)
-            return Response({"message": f"Assigned to {recruits.count()} recruits."})
+
+            quest_id = None
+            if auto_quest and recruits.exists():
+                quest = Quest.objects.create(
+                    coach=request.user,
+                    title=f"Complete: {plan.name}",
+                    description=f"Follow your assigned diet plan '{plan.name}'",
+                    xp_reward=xp_reward,
+                    coin_reward=coin_reward,
+                    difficulty='MEDIUM',
+                    is_auto_generated=True,
+                )
+                quest.assigned_to.add(*recruits)
+                quest_id = quest.id
+
+            return Response({
+                "message": f"Assigned to {recruits.count()} recruits.",
+                "quest_id": quest_id,
+            })
         except DietPlan.DoesNotExist:
             return Response({"error": "Plan not found"}, status=404)
 
@@ -184,3 +207,128 @@ class RecruitScheduleView(APIView):
             schedule.delete()  # Remove plan from that day
 
         return Response({"message": "Schedule updated"})
+
+
+# 9. RECIPES
+class RecipeListCreateView(generics.ListCreateAPIView):
+    serializer_class = RecipeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Recipe.objects.filter(coach=self.request.user).prefetch_related('ingredients__food_item')
+
+    def perform_create(self, serializer):
+        recipe = serializer.save(coach=self.request.user)
+        for ing in self.request.data.get('ingredients', []):
+            RecipeIngredient.objects.create(
+                recipe=recipe,
+                food_item_id=ing['food_item'],
+                quantity=ing.get('quantity', 1.0),
+            )
+
+
+class RecipeDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Recipe.objects.filter(coach=self.request.user)
+
+
+# 10. RECRUIT: Assigned Diet Plans
+class RecruitAssignedDietPlansView(generics.ListAPIView):
+    serializer_class = DietPlanSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return self.request.user.assigned_diet_plans.prefetch_related(
+            'meals__items__food_item', 'supplements').all()
+
+
+# 11. RECRUIT: My Weekly Schedule (Phase 4)
+class MyScheduleView(generics.ListAPIView):
+    """GET /api/nutrition/my-schedule/ — returns schedule entries for the logged-in recruit."""
+    serializer_class = DietScheduleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return DietSchedule.objects.filter(recruit=self.request.user).select_related('diet_plan')
+
+
+# 12. MEAL COMPLETION — Create (photo required)
+class CompleteMealView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        meal_name = request.data.get('meal_name', '').strip()
+        if not meal_name:
+            return Response({'error': 'meal_name required'}, status=400)
+
+        photo_file = request.FILES.get('photo')
+        diet_plan_id = request.data.get('diet_plan_id')
+
+        # upsert: if already completed today, update photo
+        completion, created = MealCompletion.objects.get_or_create(
+            user=request.user,
+            meal_name=meal_name,
+            date=today_date.today(),
+            defaults={'diet_plan_id': diet_plan_id},
+        )
+
+        if photo_file:
+            completion.photo.save(
+                f'meal_{request.user.id}_{meal_name}_{completion.date}.jpg',
+                photo_file,
+                save=True,
+            )
+        elif created:
+            # allow completion without photo (measurements-only mode)
+            completion.save()
+
+        base = request.build_absolute_uri('/')[:-1]
+        photo_url = (base + completion.photo.url) if completion.photo else None
+        return Response({
+            'id': completion.id,
+            'meal_name': completion.meal_name,
+            'date': str(completion.date),
+            'photo_url': photo_url,
+        }, status=status.HTTP_201_CREATED)
+
+
+# 13. MEAL COMPLETIONS — List today's (or by date)
+class MealCompletionsListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        date_str = request.query_params.get('date', str(today_date.today()))
+        try:
+            from datetime import datetime
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = today_date.today()
+
+        completions = MealCompletion.objects.filter(
+            user=request.user, date=target_date
+        )
+        base = request.build_absolute_uri('/')[:-1]
+        return Response([{
+            'id': c.id,
+            'meal_name': c.meal_name,
+            'date': str(c.date),
+            'photo_url': (base + c.photo.url) if c.photo else None,
+            'completed_at': str(c.completed_at),
+        } for c in completions])
+
+
+# 14. MEAL COMPLETION — Delete (undo)
+class MealCompletionDeleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        try:
+            completion = MealCompletion.objects.get(id=pk, user=request.user)
+            completion.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except MealCompletion.DoesNotExist:
+            return Response({'error': 'Not found'}, status=404)

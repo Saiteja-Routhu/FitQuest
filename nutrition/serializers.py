@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FoodItem, DietPlan, Meal, MealItem, Supplement, DietSchedule  # 👈 DietSchedule Imported
+from .models import FoodItem, DietPlan, Meal, MealItem, Supplement, DietSchedule, Recipe, RecipeIngredient
 from users.serializers import UserSerializer
 
 
@@ -56,3 +56,21 @@ class DietScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = DietSchedule
         fields = ['id', 'day_of_week', 'diet_plan', 'diet_plan_details']
+
+
+# 7. RECIPE SERIALIZERS
+class RecipeIngredientSerializer(serializers.ModelSerializer):
+    food_item_name = serializers.CharField(source='food_item.name', read_only=True)
+
+    class Meta:
+        model = RecipeIngredient
+        fields = ['id', 'food_item', 'food_item_name', 'quantity']
+
+
+class RecipeSerializer(serializers.ModelSerializer):
+    ingredients = RecipeIngredientSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Recipe
+        fields = ['id', 'name', 'instructions', 'ingredients', 'created_at']
+        read_only_fields = ['coach', 'created_at']

@@ -1,7 +1,9 @@
 from django.urls import path
 from .views import (
     PantryView, PantryItemView, DietPlanListView, CreateDietPlanView,
-    AssignDietView, UpdateDietPlanView, UpdateMealView, RecruitScheduleView
+    AssignDietView, UpdateDietPlanView, UpdateMealView, RecruitScheduleView,
+    RecipeListCreateView, RecipeDeleteView, RecruitAssignedDietPlansView,
+    MyScheduleView, CompleteMealView, MealCompletionsListView, MealCompletionDeleteView,
 )
 
 urlpatterns = [
@@ -12,7 +14,18 @@ urlpatterns = [
     path('assign/', AssignDietView.as_view(), name='assign-diet'),
     path('plan/<int:pk>/', UpdateDietPlanView.as_view(), name='plan-detail'),
 
-    # NEW URLS
+    # Meal + schedule management
     path('meal/<int:pk>/update/', UpdateMealView.as_view(), name='update-meal'),
     path('schedule/<int:recruit_id>/', RecruitScheduleView.as_view(), name='recruit-schedule'),
+    path('recipes/', RecipeListCreateView.as_view(), name='recipe-list-create'),
+    path('recipes/<int:pk>/', RecipeDeleteView.as_view(), name='recipe-delete'),
+    path('assigned/', RecruitAssignedDietPlansView.as_view(), name='recruit-assigned-diet-plans'),
+
+    # Phase 4: recruit sees own schedule
+    path('my-schedule/', MyScheduleView.as_view(), name='my-schedule'),
+
+    # Phase 6: meal photo completion
+    path('complete-meal/', CompleteMealView.as_view(), name='complete-meal'),
+    path('meal-completions/', MealCompletionsListView.as_view(), name='meal-completions'),
+    path('meal-completions/<int:pk>/', MealCompletionDeleteView.as_view(), name='meal-completion-delete'),
 ]

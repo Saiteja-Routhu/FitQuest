@@ -23,6 +23,22 @@ dependencies:
 
   google_fonts: ^6.1.0
 
+  # Camera & Pose Detection
+  camera: ^0.10.5+9
+  google_mlkit_pose_detection: ^0.11.0
+
+  # Image Picker (for body scan photos)
+  image_picker: ^1.0.7
+
+  # Pedometer (step counter)
+  pedometer: ^4.0.0
+
+  # Runtime permissions
+  permission_handler: ^11.3.1
+
+  # Charts (analytics screen)
+  fl_chart: ^0.68.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

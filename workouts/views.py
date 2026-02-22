@@ -1,8 +1,10 @@
+from django.http import Http404
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Exercise, WorkoutPlan
+from .models import Exercise, WorkoutPlan, WorkoutExercise
 from .serializers import ExerciseSerializer, WorkoutPlanSerializer
+from quests.models import Quest
 
 # 1. List all Exercises (DISABLE PAGINATION so App gets all 150+)
 class ExerciseListView(generics.ListAPIView):
@@ -27,6 +29,9 @@ class AssignPlanView(APIView):
     def post(self, request):
         plan_id = request.data.get('plan_id')
         recruit_ids = request.data.get('recruit_ids')
+        xp_reward = int(request.data.get('xp_reward', 100))
+        coin_reward = int(request.data.get('coin_reward', 10))
+        auto_quest = request.data.get('auto_quest', True)
 
         try:
             plan = WorkoutPlan.objects.get(id=plan_id, coach=request.user)
@@ -34,7 +39,23 @@ class AssignPlanView(APIView):
                 plan.assigned_to.add(*recruit_ids)
             else:
                 plan.assigned_to.add(recruit_ids)
-            return Response({"message": "Plan assigned successfully"})
+
+            quest_id = None
+            if auto_quest:
+                quest = Quest.objects.create(
+                    coach=request.user,
+                    title=f"Complete: {plan.name}",
+                    description=f"Finish your assigned training plan '{plan.name}'",
+                    xp_reward=xp_reward,
+                    coin_reward=coin_reward,
+                    difficulty='MEDIUM',
+                    is_auto_generated=True,
+                )
+                ids = recruit_ids if isinstance(recruit_ids, list) else [recruit_ids]
+                quest.assigned_to.add(*ids)
+                quest_id = quest.id
+
+            return Response({"message": "Plan assigned successfully", "quest_id": quest_id})
         except WorkoutPlan.DoesNotExist:
             return Response({"error": "Plan not found or not yours"}, status=404)
 
@@ -46,3 +67,50 @@ class CoachPlansView(generics.ListAPIView):
 
     def get_queryset(self):
         return WorkoutPlan.objects.filter(coach=self.request.user).order_by('-created_at')
+
+
+# 5. Update / Delete a specific plan
+class UpdateDeleteWorkoutPlanView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, pk, user):
+        try:
+            return WorkoutPlan.objects.get(id=pk, coach=user)
+        except WorkoutPlan.DoesNotExist:
+            raise Http404
+
+    def put(self, request, pk):
+        plan = self.get_object(pk, request.user)
+        plan.name        = request.data.get('name', plan.name)
+        plan.description = request.data.get('description', plan.description)
+        plan.day_names   = request.data.get('day_names', plan.day_names)
+        plan.save()
+        # Full-replace exercises
+        exercises_data = request.data.get('workout_exercises', [])
+        plan.workout_exercises.all().delete()
+        for i, ex in enumerate(exercises_data):
+            WorkoutExercise.objects.create(
+                plan=plan,
+                exercise_id=ex['exercise_id'],
+                sets=ex.get('sets', 3),
+                reps=ex.get('reps', '10-12'),
+                rest_time=ex.get('rest_time', 60),
+                order=i + 1,
+                day_label=ex.get('day_label', 'Any'),
+            )
+        return Response(WorkoutPlanSerializer(plan).data)
+
+    def delete(self, request, pk):
+        self.get_object(pk, request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# 6. Recruit: Assigned Plans
+class RecruitAssignedPlansView(generics.ListAPIView):
+    serializer_class = WorkoutPlanSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return self.request.user.assigned_plans.prefetch_related(
+            'workout_exercises__exercise').all()
