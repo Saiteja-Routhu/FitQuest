@@ -101,7 +101,7 @@ DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get(
             'DATABASE_URL',
-            'postgresql://postgres:Saiteja@007@localhost:5432/fitquest_db'
+            'postgresql://postgres:Saiteja%40007@localhost:5432/fitquest_db'
         ),
         conn_max_age=600,
     )
