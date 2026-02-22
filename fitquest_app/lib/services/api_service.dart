@@ -14,7 +14,7 @@ class ApiService {
       Uri.parse('$baseUrl/users/register/'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode(data),
-    ).timeout(const Duration(seconds: 10), onTimeout: () {
+    ).timeout(const Duration(seconds: 15), onTimeout: () {
       throw Exception('Server unreachable — check your network and try again');
     });
     if (response.statusCode == 201) return jsonDecode(response.body);
@@ -26,7 +26,7 @@ class ApiService {
       Uri.parse('$baseUrl/users/login/'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"username": username, "password": password, "role": role}),
-    ).timeout(const Duration(seconds: 10), onTimeout: () {
+    ).timeout(const Duration(seconds: 15), onTimeout: () {
       throw Exception('Server unreachable — check your network and try again');
     });
     if (response.statusCode == 200) return jsonDecode(response.body);
