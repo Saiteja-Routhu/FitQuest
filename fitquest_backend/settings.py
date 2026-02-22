@@ -97,20 +97,16 @@ WSGI_APPLICATION = 'fitquest_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-_db_url = os.environ.get('DATABASE_URL')
-if _db_url:
-    DATABASES = {'default': dj_database_url.parse(_db_url, conn_max_age=600)}
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'fitquest_db',
-            'USER': 'postgres',
-            'PASSWORD': 'Saiteja@007',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME':     os.environ.get('DB_NAME',     'fitquest_db'),
+        'USER':     os.environ.get('DB_USER',     'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'Saiteja@007'),
+        'HOST':     os.environ.get('DB_HOST',     'localhost'),
+        'PORT':     os.environ.get('DB_PORT',     '5432'),
     }
+}
 
 
 # Password validation
