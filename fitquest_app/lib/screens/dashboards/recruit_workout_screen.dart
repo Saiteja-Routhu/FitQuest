@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
 import '../../services/workout_service.dart';
 import '../../services/analytics_service.dart';
@@ -574,7 +575,7 @@ class _DayView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
               if (focus != null) _focusBanner(),
-              ...exercises.map((e) => _exerciseCard(e)),
+              ...exercises.map((e) => _exerciseCard(context, e)),
             ],
           );
   }
@@ -611,7 +612,102 @@ class _DayView extends StatelessWidget {
         ]),
       );
 
-  Widget _exerciseCard(Map<String, dynamic> ex) {
+  void _showExerciseDetail(BuildContext context, Map<String, dynamic> exData) {
+    final name        = exData['name']?.toString() ?? 'Exercise';
+    final muscle      = exData['muscle_group']?.toString() ?? '';
+    final difficulty  = exData['difficulty']?.toString() ?? '';
+    final description = exData['description']?.toString() ?? '';
+    final videoUrl    = exData['video_url']?.toString() ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        decoration: const BoxDecoration(
+          color: FQColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: FQColors.border)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+                color: FQColors.muted.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(2)),
+          ),
+          // Icon + name
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: FQColors.cyan.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.fitness_center,
+                  color: FQColors.cyan, size: 28),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name,
+                    style: GoogleFonts.rajdhani(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, children: [
+                  if (muscle.isNotEmpty)
+                    _tag(muscle, FQColors.purple),
+                  if (difficulty.isNotEmpty)
+                    _tag(difficulty, FQColors.gold),
+                ]),
+              ]),
+            ),
+          ]),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(description,
+                style: const TextStyle(
+                    color: FQColors.muted, fontSize: 13, height: 1.5)),
+          ],
+          if (videoUrl.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final uri = Uri.parse(videoUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri,
+                        mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.play_circle_outline,
+                    color: Colors.black),
+                label: Text('WATCH VIDEO',
+                    style: GoogleFonts.rajdhani(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FQColors.cyan,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
+  Widget _exerciseCard(BuildContext context, Map<String, dynamic> ex) {
     final exData = ex['exercise'] as Map<String, dynamic>? ?? {};
     final name = exData['name']?.toString() ?? 'Exercise';
     final muscle = exData['muscle_group']?.toString() ?? '';
@@ -619,6 +715,7 @@ class _DayView extends StatelessWidget {
     final reps = ex['reps']?.toString() ?? '10-12';
     final rest = ex['rest_time'] ?? 60;
     final todaySets = setCountMap[name] ?? 0;
+    final hasVideo = (exData['video_url']?.toString() ?? '').isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -629,15 +726,34 @@ class _DayView extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: FQColors.cyan.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+        // Tappable icon → detail sheet
+        GestureDetector(
+          onTap: () => _showExerciseDetail(context, exData),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: FQColors.cyan.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Stack(alignment: Alignment.center, children: [
+              const Icon(Icons.fitness_center,
+                  color: FQColors.cyan, size: 18),
+              if (hasVideo)
+                Positioned(
+                  right: 0, bottom: 0,
+                  child: Container(
+                    width: 10, height: 10,
+                    decoration: const BoxDecoration(
+                      color: FQColors.gold,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.play_arrow,
+                        color: Colors.black, size: 7),
+                  ),
+                ),
+            ]),
           ),
-          child: const Icon(Icons.fitness_center,
-              color: FQColors.cyan, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(

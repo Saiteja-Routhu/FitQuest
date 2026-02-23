@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
@@ -30,6 +31,8 @@ class _AuthGateScreenState extends State<AuthGateScreen>
   String _goal           = 'Weight Loss';
   bool   _isLogin        = true;
   bool   _isLoading      = false;
+  bool   _warmingUp      = false; // true after 5s of loading — Render cold start
+  Timer? _warmUpTimer;
   bool   _obscurePass    = true;
   bool   _rememberMe     = false;
   bool   _isAutoLogging  = true; // shows splash while checking saved session
@@ -115,7 +118,10 @@ class _AuthGateScreenState extends State<AuthGateScreen>
   }
 
   void _submit() async {
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _warmingUp = false; });
+    _warmUpTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && _isLoading) setState(() => _warmingUp = true);
+    });
     try {
       if (_isLogin) {
         final resp = await ApiService.loginUser(
@@ -177,7 +183,8 @@ class _AuthGateScreenState extends State<AuthGateScreen>
         backgroundColor: FQColors.red,
       ));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      _warmUpTimer?.cancel();
+      if (mounted) setState(() { _isLoading = false; _warmingUp = false; });
     }
   }
 
@@ -441,9 +448,16 @@ class _AuthGateScreenState extends State<AuthGateScreen>
     final text = _isLogin ? 'ENTER THE ARENA' : 'JOIN THE LEAGUE';
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: _isLoading && _warmingUp ? 72 : 52,
       child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: FQColors.cyan))
+          ? Column(mainAxisSize: MainAxisSize.min, children: [
+              const CircularProgressIndicator(color: FQColors.cyan),
+              if (_warmingUp) ...[
+                const SizedBox(height: 8),
+                Text('Waking up server...', style: GoogleFonts.rajdhani(
+                  color: FQColors.muted, fontSize: 13, letterSpacing: 1)),
+              ],
+            ])
           : ElevatedButton(
               onPressed: _submit,
               style: ElevatedButton.styleFrom(

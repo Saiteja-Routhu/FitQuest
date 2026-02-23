@@ -39,6 +39,9 @@ dependencies:
   # Charts (analytics screen)
   fl_chart: ^0.68.0
 
+  # Launch URLs / YouTube videos
+  url_launcher: ^6.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

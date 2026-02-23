@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
 import '../../services/workout_service.dart';
 import '../../services/api_service.dart';
@@ -18,8 +19,9 @@ class ForgeScreen extends StatefulWidget {
 }
 
 class _ForgeScreenState extends State<ForgeScreen> {
-  List<dynamic> _plans    = [];
-  bool          _loading  = true;
+  List<dynamic> _plans       = [];
+  bool          _loading     = true;
+  final Set<int> _expanded   = {};
 
   @override
   void initState() {
@@ -150,15 +152,18 @@ class _ForgeScreenState extends State<ForgeScreen> {
   Widget _planCard(Map<String, dynamic> plan) {
     final exercises = plan['workout_exercises'] as List;
     final assigned  = (plan['assigned_count'] ?? 0) as int;
+    final planId    = plan['id'] as int;
+    final isExpanded = _expanded.contains(planId);
 
-    // Collect days that have exercises
-    final daysWithExercises = <String>{};
-    for (final ex in exercises) {
-      final day = ex['day_label']?.toString() ?? 'Any';
-      if (day != 'Any') daysWithExercises.add(day);
-    }
+    // Group exercises by day
     const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    final sortedDays = dayOrder.where((d) => daysWithExercises.contains(d)).toList();
+    final byDay = <String, List<dynamic>>{};
+    for (final ex in exercises) {
+      final day = ex['day_label']?.toString() ?? 'Other';
+      byDay.putIfAbsent(day, () => []).add(ex);
+    }
+    final sortedDays = dayOrder.where((d) => byDay.containsKey(d)).toList();
+    if (byDay.containsKey('Other')) sortedDays.add('Other');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -170,6 +175,7 @@ class _ForgeScreenState extends State<ForgeScreen> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // ── Header row ──
           Row(children: [
             Container(
               padding: const EdgeInsets.all(10),
@@ -213,29 +219,82 @@ class _ForgeScreenState extends State<ForgeScreen> {
               ),
             ]),
           ]),
-          if (sortedDays.isNotEmpty) ...[
+
+          // ── Expand toggle ──
+          if (exercises.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: sortedDays.map((d) {
-                final focusName = (plan['day_names'] as Map<String, dynamic>?)?[d];
-                return Container(
+            GestureDetector(
+              onTap: () => setState(() {
+                if (isExpanded) _expanded.remove(planId);
+                else _expanded.add(planId);
+              }),
+              child: Row(children: [
+                Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: FQColors.cyan, size: 18,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isExpanded ? 'HIDE EXERCISES' : 'VIEW EXERCISES',
+                  style: GoogleFonts.rajdhani(
+                      color: FQColors.cyan, fontSize: 12,
+                      fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+              ]),
+            ),
+          ],
+
+          // ── Expanded exercise list grouped by day ──
+          if (isExpanded && sortedDays.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: FQColors.border),
+            const SizedBox(height: 10),
+            for (final day in sortedDays) ...[
+              // Day header
+              Row(children: [
+                Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: FQColors.gold.withOpacity(0.08),
+                    color: FQColors.gold.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: FQColors.gold.withOpacity(0.25)),
+                    border: Border.all(color: FQColors.gold.withOpacity(0.3)),
                   ),
                   child: Text(
-                    focusName != null
-                        ? '${d.substring(0, 3)}: $focusName'
-                        : d.substring(0, 3),
-                    style: const TextStyle(color: FQColors.gold, fontSize: 10),
+                    () {
+                      final focus = (plan['day_names'] as Map<String, dynamic>?)?[day];
+                      return focus != null
+                          ? '${day.substring(0, 3).toUpperCase()} · $focus'
+                          : day.substring(0, 3).toUpperCase();
+                    }(),
+                    style: GoogleFonts.rajdhani(
+                        color: FQColors.gold, fontSize: 11,
+                        fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              // Exercises for this day
+              for (final ex in byDay[day]!) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5, left: 4),
+                  child: Row(children: [
+                    const Icon(Icons.circle, color: FQColors.cyan, size: 5),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ex['exercise']['name'],
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                    Text(
+                      '${ex['sets']}×${ex['reps']}  ${ex['rest_time']}s rest',
+                      style: const TextStyle(color: FQColors.muted, fontSize: 11),
+                    ),
+                  ]),
+                ),
+              ],
+              if (day != sortedDays.last) const SizedBox(height: 8),
+            ],
           ],
         ]),
       ),
@@ -526,6 +585,8 @@ class _ForgeBuilderScreenState extends State<ForgeBuilderScreen>
                 itemCount: _filtered.length,
                 itemBuilder: (_, i) {
                   final ex = _filtered[i];
+                  final hasVideo =
+                      (ex['video_url']?.toString() ?? '').isNotEmpty;
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
@@ -536,19 +597,43 @@ class _ForgeBuilderScreenState extends State<ForgeBuilderScreen>
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: FQColors.gold.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                      // Tappable icon → detail sheet
+                      leading: GestureDetector(
+                        onTap: () => _showExerciseDetail(context, ex),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: FQColors.gold.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Icon(Icons.fitness_center,
+                                  color: FQColors.gold, size: 16),
+                              if (hasVideo)
+                                Positioned(
+                                  right: -4, bottom: -4,
+                                  child: Container(
+                                    width: 10, height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: FQColors.gold,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.play_arrow,
+                                        color: Colors.black, size: 7),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(Icons.fitness_center,
-                            color: FQColors.gold, size: 16),
                       ),
                       title: Text(ex['name'],
-                          style: const TextStyle(color: Colors.white, fontSize: 14)),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14)),
                       subtitle: Text(ex['muscle_group'] ?? '',
-                          style: const TextStyle(color: FQColors.muted, fontSize: 11)),
+                          style: const TextStyle(
+                              color: FQColors.muted, fontSize: 11)),
                       trailing: IconButton(
                         icon: const Icon(Icons.add_circle,
                             color: FQColors.green, size: 28),
@@ -564,6 +649,113 @@ class _ForgeBuilderScreenState extends State<ForgeBuilderScreen>
       }),
     );
   }
+
+  void _showExerciseDetail(BuildContext context, dynamic ex) {
+    final name        = ex['name']?.toString() ?? 'Exercise';
+    final muscle      = ex['muscle_group']?.toString() ?? '';
+    final difficulty  = ex['difficulty']?.toString() ?? '';
+    final description = ex['description']?.toString() ?? '';
+    final videoUrl    = ex['video_url']?.toString() ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        decoration: const BoxDecoration(
+          color: FQColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: FQColors.border)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+                color: FQColors.muted.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(2)),
+          ),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: FQColors.gold.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.fitness_center,
+                  color: FQColors.gold, size: 28),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name,
+                    style: GoogleFonts.rajdhani(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, children: [
+                  if (muscle.isNotEmpty)
+                    _exerciseTag(muscle, FQColors.purple),
+                  if (difficulty.isNotEmpty)
+                    _exerciseTag(difficulty, FQColors.gold),
+                ]),
+              ]),
+            ),
+          ]),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(description,
+                style: const TextStyle(
+                    color: FQColors.muted, fontSize: 13, height: 1.5)),
+          ],
+          if (videoUrl.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final uri = Uri.parse(videoUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri,
+                        mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.play_circle_outline,
+                    color: Colors.black),
+                label: Text('WATCH VIDEO',
+                    style: GoogleFonts.rajdhani(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FQColors.gold,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
+  Widget _exerciseTag(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+      );
 
   @override
   Widget build(BuildContext context) {
