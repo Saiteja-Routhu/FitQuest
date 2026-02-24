@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_service.dart'; // To get the baseUrl
 
+const _kTimeout = Duration(seconds: 20);
+
 class WorkoutService {
   static const String baseUrl = ApiService.baseUrl;
 
@@ -11,7 +13,7 @@ class WorkoutService {
     final response = await http.get(
       Uri.parse('$baseUrl/workouts/exercises/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
 
     if (response.statusCode == 200) {
       // Handle pagination if Django sends it, or list if not
@@ -29,7 +31,7 @@ class WorkoutService {
       Uri.parse('$baseUrl/workouts/create/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode(planData),
-    );
+    ).timeout(_kTimeout);
 
     if (response.statusCode != 201) {
       throw Exception('Failed to create plan: ${response.body}');
@@ -42,7 +44,7 @@ class WorkoutService {
     final response = await http.get(
       Uri.parse('$baseUrl/workouts/my-plans/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
 
     if (response.statusCode == 200) {
       var data = jsonDecode(response.body);
@@ -72,7 +74,7 @@ class WorkoutService {
         "coin_reward": coinReward,
         "auto_quest": true,
       }),
-    );
+    ).timeout(_kTimeout);
 
     if (response.statusCode != 200) {
       throw Exception('Failed to assign: ${response.body}');
@@ -87,7 +89,7 @@ class WorkoutService {
       Uri.parse('$baseUrl/workouts/plans/$planId/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode(data),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 200) {
       throw Exception('Failed to update plan: ${response.body}');
     }
@@ -99,7 +101,7 @@ class WorkoutService {
     final response = await http.delete(
       Uri.parse('$baseUrl/workouts/plans/$planId/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 204) {
       throw Exception('Failed to delete plan: ${response.body}');
     }
@@ -111,7 +113,7 @@ class WorkoutService {
     final response = await http.get(
       Uri.parse('$baseUrl/workouts/assigned/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : [];
@@ -127,7 +129,7 @@ class WorkoutService {
       Uri.parse('$baseUrl/analytics/log-set/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode(data),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }

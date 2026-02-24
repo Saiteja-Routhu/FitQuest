@@ -42,6 +42,9 @@ dependencies:
   # Launch URLs / YouTube videos
   url_launcher: ^6.3.2
 
+  # Network image caching (prevents re-download on every screen open)
+  cached_network_image: ^3.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

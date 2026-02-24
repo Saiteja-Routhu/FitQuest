@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../main.dart';
 import '../../services/analytics_service.dart';
 import '../../services/api_service.dart';
@@ -250,12 +251,17 @@ class _BodyScanScreenState extends State<BodyScanScreen>
                   if (photoUrl != null) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        photoUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: photoUrl,
                         width: 40,
                         height: 40,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        placeholder: (_, __) => Container(
+                          width: 40,
+                          height: 40,
+                          color: FQColors.card,
+                        ),
+                        errorWidget: (_, __, ___) => Container(
                           width: 40,
                           height: 40,
                           color: FQColors.card,
@@ -390,10 +396,11 @@ class _BodyScanScreenState extends State<BodyScanScreen>
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Stack(fit: StackFit.expand, children: [
-                      Image.network(
-                        photoMap['url'] as String,
+                      CachedNetworkImage(
+                        imageUrl: photoMap['url'] as String,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        placeholder: (_, __) => Container(color: FQColors.surface),
+                        errorWidget: (_, __, ___) => Container(
                           color: FQColors.surface,
                           child: const Icon(Icons.broken_image,
                               color: FQColors.muted),
@@ -458,7 +465,13 @@ class _BodyScanScreenState extends State<BodyScanScreen>
           ),
           body: Center(
             child: InteractiveViewer(
-              child: Image.network(url),
+              child: CachedNetworkImage(
+                imageUrl: url,
+                placeholder: (_, __) => const Center(
+                    child: CircularProgressIndicator(color: FQColors.gold)),
+                errorWidget: (_, __, ___) =>
+                    const Icon(Icons.broken_image, color: FQColors.muted),
+              ),
             ),
           ),
         ),

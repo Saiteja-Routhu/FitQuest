@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'api_service.dart';
 
+const _kTimeout = Duration(seconds: 20);
+
 class NutritionService {
   static const String baseUrl = ApiService.baseUrl;
 
@@ -12,7 +14,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/pantry/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load pantry');
   }
@@ -23,7 +25,7 @@ class NutritionService {
       Uri.parse('$baseUrl/nutrition/pantry/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode(foodData),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 201) throw Exception('Failed to add food');
   }
 
@@ -32,7 +34,7 @@ class NutritionService {
     final response = await http.delete(
       Uri.parse('$baseUrl/nutrition/pantry/$id/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 204) throw Exception('Failed to delete item');
   }
 
@@ -42,7 +44,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/plans/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load diet plans');
   }
@@ -53,7 +55,7 @@ class NutritionService {
       Uri.parse('$baseUrl/nutrition/create/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode(planData),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 201) throw Exception('Failed to create plan');
   }
 
@@ -62,7 +64,7 @@ class NutritionService {
     final response = await http.delete(
       Uri.parse('$baseUrl/nutrition/plan/$planId/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 204) throw Exception('Failed to delete plan');
   }
 
@@ -85,7 +87,7 @@ class NutritionService {
         "coin_reward": coinReward,
         "auto_quest": true,
       }),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 200) throw Exception('Failed to assign diet');
   }
 
@@ -97,7 +99,7 @@ class NutritionService {
       Uri.parse('$baseUrl/nutrition/meal/$mealId/update/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode({"items": items}),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 200) throw Exception('Failed to update meal');
   }
 
@@ -106,7 +108,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/schedule/$recruitId/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load schedule');
   }
@@ -117,7 +119,7 @@ class NutritionService {
       Uri.parse('$baseUrl/nutrition/schedule/$recruitId/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode({"day": day, "plan_id": planId}),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 200) throw Exception('Failed to set schedule');
   }
 
@@ -127,7 +129,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/recipes/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : data['results'] ?? [];
@@ -141,7 +143,7 @@ class NutritionService {
       Uri.parse('$baseUrl/nutrition/recipes/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
       body: jsonEncode(data),
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 201) throw Exception('Failed to create recipe');
   }
 
@@ -150,7 +152,7 @@ class NutritionService {
     final response = await http.delete(
       Uri.parse('$baseUrl/nutrition/recipes/$recipeId/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 204) throw Exception('Failed to delete recipe');
   }
 
@@ -160,7 +162,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/assigned/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : [];
@@ -174,7 +176,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/my-schedule/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : [];
@@ -200,7 +202,7 @@ class NutritionService {
     if (photo != null) {
       request.files.add(await http.MultipartFile.fromPath('photo', photo.path));
     }
-    final streamed = await request.send();
+    final streamed = await request.send().timeout(const Duration(seconds: 30));
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
@@ -217,7 +219,7 @@ class NutritionService {
     final response = await http.get(
       Uri.parse('$baseUrl/nutrition/meal-completions/?date=$date'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load meal completions');
   }
@@ -231,7 +233,7 @@ class NutritionService {
     final response = await http.delete(
       Uri.parse('$baseUrl/nutrition/meal-completions/$id/'),
       headers: {"Content-Type": "application/json", "Authorization": basicAuth},
-    );
+    ).timeout(_kTimeout);
     if (response.statusCode != 204) throw Exception('Failed to undo meal completion');
   }
 }

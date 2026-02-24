@@ -343,11 +343,12 @@ class TeamActivityView(APIView):
         two_minutes_ago = timezone.now() - timedelta(minutes=2)
 
         if viewer.role == 'GUILD_MASTER':
-            athletes = CustomUser.objects.filter(coach=viewer, role='RECRUIT')
+            athletes = CustomUser.objects.filter(
+                coach=viewer, role='RECRUIT').select_related('activity_status')
         elif viewer.role == 'SUPER_COACH':
             managed_coach_ids = viewer.managed_coaches.values_list('id', flat=True)
             athletes = CustomUser.objects.filter(
-                coach__id__in=managed_coach_ids, role='RECRUIT')
+                coach__id__in=managed_coach_ids, role='RECRUIT').select_related('activity_status')
         else:
             return Response({'error': 'Forbidden'}, status=403)
 

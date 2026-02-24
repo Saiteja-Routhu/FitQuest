@@ -217,7 +217,7 @@ class _ConversationScreenState extends State<_ConversationScreen> {
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _load());
   }
 
   @override
@@ -325,7 +325,7 @@ class _BroadcastTabState extends State<_BroadcastTab> {
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _load());
   }
 
   @override
@@ -441,7 +441,7 @@ class _TeamsTabState extends State<_TeamsTab> {
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_selectedGroupId != null) _loadGroupMessages(_selectedGroupId!);
     });
   }

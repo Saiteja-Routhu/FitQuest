@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_service.dart';
 
+const _kTimeout = Duration(seconds: 20);
+
 class AnalyticsService {
   static const String baseUrl = ApiService.baseUrl;
 
@@ -16,10 +18,12 @@ class AnalyticsService {
   // ── Daily Activity ─────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> fetchTodayActivity(
       String u, String p) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/daily/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/daily/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }
@@ -40,11 +44,13 @@ class AnalyticsService {
     if (steps != null) body['steps'] = steps;
     if (stepGoal != null) body['step_goal'] = stepGoal;
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/analytics/daily/'),
-      headers: _headers(u, p),
-      body: jsonEncode(body),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/analytics/daily/'),
+          headers: _headers(u, p),
+          body: jsonEncode(body),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }
@@ -53,21 +59,25 @@ class AnalyticsService {
 
   // ── Body Progress ──────────────────────────────────────────────────────────
   static Future<List<dynamic>> fetchBodyProgress(String u, String p) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/body-progress/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/body-progress/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load body progress');
   }
 
   static Future<Map<String, dynamic>> createBodyProgress(
       String u, String p, Map<String, dynamic> data) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/analytics/body-progress/'),
-      headers: _headers(u, p),
-      body: jsonEncode(data),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/analytics/body-progress/'),
+          headers: _headers(u, p),
+          body: jsonEncode(data),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }
@@ -75,10 +85,12 @@ class AnalyticsService {
   }
 
   static Future<void> deleteBodyProgress(String u, String p, int id) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/analytics/body-progress/$id/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .delete(
+          Uri.parse('$baseUrl/analytics/body-progress/$id/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode != 204) {
       throw Exception('Failed to delete body progress entry');
     }
@@ -88,14 +100,16 @@ class AnalyticsService {
   static Future<void> sendHeartbeat(
       String u, String p, String activityType, int stepsLive) async {
     try {
-      await http.post(
-        Uri.parse('$baseUrl/analytics/heartbeat/'),
-        headers: _headers(u, p),
-        body: jsonEncode({
-          'activity_type': activityType,
-          'steps_live': stepsLive,
-        }),
-      );
+      await http
+          .post(
+            Uri.parse('$baseUrl/analytics/heartbeat/'),
+            headers: _headers(u, p),
+            body: jsonEncode({
+              'activity_type': activityType,
+              'steps_live': stepsLive,
+            }),
+          )
+          .timeout(_kTimeout);
     } catch (_) {
       // Heartbeat is best-effort; don't throw
     }
@@ -103,10 +117,12 @@ class AnalyticsService {
 
   // ── Team Activity (Coach/SC) ───────────────────────────────────────────────
   static Future<List<dynamic>> fetchTeamActivity(String u, String p) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/team-activity/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/team-activity/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load team activity');
   }
@@ -114,11 +130,13 @@ class AnalyticsService {
   // ── Workout Set Logging ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> logSet(
       String u, String p, Map<String, dynamic> data) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/analytics/log-set/'),
-      headers: _headers(u, p),
-      body: jsonEncode(data),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/analytics/log-set/'),
+          headers: _headers(u, p),
+          body: jsonEncode(data),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }
@@ -126,30 +144,36 @@ class AnalyticsService {
   }
 
   static Future<List<dynamic>> fetchMySetLogs(String u, String p) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/my-sets/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/my-sets/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load set logs');
   }
 
   static Future<List<dynamic>> fetchAthleteSetLogs(
       String u, String p, int athleteId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/athlete/$athleteId/sets/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/athlete/$athleteId/sets/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load athlete set logs');
   }
 
   static Future<Map<String, dynamic>> fetchAthleteSummary(
       String u, String p, int athleteId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/athlete/$athleteId/summary/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/athlete/$athleteId/summary/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }
@@ -157,20 +181,24 @@ class AnalyticsService {
   }
 
   static Future<List<dynamic>> fetchPhotoGallery(String u, String p) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/photos/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/photos/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load photo gallery');
   }
 
   static Future<List<dynamic>> fetchAthleteBodyProgress(
       String u, String p, int athleteId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/athlete/$athleteId/body-progress/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/athlete/$athleteId/body-progress/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Failed to load athlete body progress');
   }
@@ -178,10 +206,12 @@ class AnalyticsService {
   // ── Self Transformations (Recruit) ────────────────────────────────────────
   static Future<Map<String, dynamic>> fetchMyTransformations(
       String u, String p) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/analytics/my-transformations/'),
-      headers: _headers(u, p),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/my-transformations/'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
     if (response.statusCode == 200) {
       return Map<String, dynamic>.from(jsonDecode(response.body));
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../main.dart';
 import '../../services/nutrition_service.dart';
 import '../../services/api_service.dart';
@@ -983,12 +984,17 @@ class _AnalyticsTabState extends State<_AnalyticsTab> {
         if (photoUrl != null && photoUrl.isNotEmpty)
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              photoUrl,
+            child: CachedNetworkImage(
+              imageUrl: photoUrl,
               width: 72,
               height: 90,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              placeholder: (_, __) => Container(
+                width: 72,
+                height: 90,
+                color: FQColors.card,
+              ),
+              errorWidget: (_, __, ___) => Container(
                 width: 72,
                 height: 90,
                 color: FQColors.card,

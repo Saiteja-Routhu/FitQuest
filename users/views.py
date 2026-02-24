@@ -170,9 +170,9 @@ class LeaderboardView(APIView):
     def get(self, request):
         user = request.user
         if user.role == 'GUILD_MASTER':
-            qs = CustomUser.objects.filter(coach=user)
+            qs = CustomUser.objects.filter(coach=user).select_related('coach')
         else:
-            qs = CustomUser.objects.filter(coach=user.coach) if user.coach else CustomUser.objects.none()
+            qs = CustomUser.objects.filter(coach=user.coach).select_related('coach') if user.coach else CustomUser.objects.none()
         return Response(UserSerializer(qs.order_by('-level', '-xp'), many=True).data)
 
 
@@ -291,7 +291,7 @@ class SCAllAthletesView(APIView):
     def get(self, request):
         if request.user.role not in ('SUPER_COACH', 'HIGH_COUNCIL'):
             return Response({'error': 'Forbidden'}, status=403)
-        athletes = CustomUser.objects.filter(role='RECRUIT')
+        athletes = CustomUser.objects.filter(role='RECRUIT').select_related('coach')
         data = [
             {
                 'id': u.id,
@@ -313,7 +313,7 @@ class SCAllCoachesView(APIView):
     def get(self, request):
         if request.user.role not in ('SUPER_COACH', 'HIGH_COUNCIL'):
             return Response({'error': 'Forbidden'}, status=403)
-        coaches = CustomUser.objects.filter(role='GUILD_MASTER')
+        coaches = CustomUser.objects.filter(role='GUILD_MASTER').select_related('super_coach')
         data = [
             {
                 'id': u.id,

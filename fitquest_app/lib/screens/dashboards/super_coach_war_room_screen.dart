@@ -57,7 +57,7 @@ class _SuperCoachWarRoomScreenState extends State<SuperCoachWarRoomScreen>
   }
 
   void _startPolling() {
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_selectedCoachId != null) _loadDM(_selectedCoachId!);
       if (_selectedAthleteId != null) _loadDM(_selectedAthleteId!);
       if (_selectedGroupId != null) _loadGroupMessages(_selectedGroupId!);
@@ -68,14 +68,15 @@ class _SuperCoachWarRoomScreenState extends State<SuperCoachWarRoomScreen>
     try {
       final coaches = await ApiService.fetchManagedCoaches(
           widget.userData['username'], widget.password);
-      // Also collect all athletes under these coaches
+      // Also collect all athletes under these coaches (parallel fetch)
       final allAthletes = <dynamic>[];
-      for (final coach in coaches) {
-        try {
-          final ath = await ApiService.fetchCoachAthletes(
-              widget.userData['username'], widget.password, coach['id'] as int);
-          allAthletes.addAll(ath);
-        } catch (_) {}
+      final athleteResults = await Future.wait(
+        coaches.map((coach) => ApiService.fetchCoachAthletes(
+              widget.userData['username'], widget.password, coach['id'] as int)
+            .catchError((_) => <dynamic>[])),
+      );
+      for (final ath in athleteResults) {
+        allAthletes.addAll(ath);
       }
       if (mounted) {
         setState(() {
