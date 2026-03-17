@@ -113,7 +113,6 @@ class _RecruitWorkoutScreenState extends State<RecruitWorkoutScreen> {
                     ),
                     // ALL PROGRAMS label
                     if (_plans.isNotEmpty)
-                      if (widget.userData['coach'] == null)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -179,7 +178,7 @@ class _RecruitWorkoutScreenState extends State<RecruitWorkoutScreen> {
         Text('No training plans assigned yet',
             style: GoogleFonts.rajdhani(
                 color: FQColors.muted, fontSize: 16)),
-        if (!hasCoach) ...[
+        ...[
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: () async {

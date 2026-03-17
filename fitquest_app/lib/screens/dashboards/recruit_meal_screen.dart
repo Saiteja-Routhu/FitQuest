@@ -210,7 +210,7 @@ class _RecruitMealScreenState extends State<RecruitMealScreen> {
           const SizedBox(height: 16),
           Text('No meal plans assigned yet',
               style: GoogleFonts.rajdhani(color: FQColors.muted, fontSize: 16)),
-          if (!hasCoach) ...[
+          ...[
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () async {
@@ -240,8 +240,7 @@ class _RecruitMealScreenState extends State<RecruitMealScreen> {
       );
     }
     return Column(children: [
-      if (!hasCoach)
-        Padding(
+      Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: SizedBox(
             width: double.infinity,
