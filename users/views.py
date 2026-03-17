@@ -225,7 +225,7 @@ class UpdateProfileView(APIView):
 
     def patch(self, request):
         user = request.user
-        allowed = ('weight', 'height', 'goal', 'activity_level')
+        allowed = ('weight', 'height', 'goal', 'activity_level', 'age', 'gender')
         for field in allowed:
             if field in request.data:
                 val = request.data[field]

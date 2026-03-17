@@ -17,6 +17,7 @@ import 'pose_coach_screen.dart';
 import 'body_scan_screen.dart';
 import 'super_coach_services_screen.dart';
 import 'transformations_screen.dart';
+import 'tdee_screen.dart';
 
 class RecruitDashboard extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -256,6 +257,20 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
                           MaterialPageRoute(
                               builder: (_) => TransformationsScreen(
                                   userData: _userData,
+                                  password: widget.password))),
+                    ),
+                    _menuCard(
+                      context: context,
+                      icon: Icons.calculate_outlined,
+                      title: 'TDEE CALC',
+                      subtitle: 'Calories & macros',
+                      color: FQColors.gold,
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => TDEEScreen(
+                                  userData: _userData,
+                                  username: _userData['username'] ?? '',
                                   password: widget.password))),
                     ),
                   ],

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
 import '../../services/workout_service.dart';
 import '../../services/analytics_service.dart';
+import 'recruit_workout_builder_screen.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // RECRUIT WORKOUT SCREEN — List of assigned training plans
@@ -70,9 +71,17 @@ class _RecruitWorkoutScreenState extends State<RecruitWorkoutScreen> {
   void _load() async {
     setState(() => _loading = true);
     try {
-      final p = await WorkoutService.fetchAssignedPlans(
-          widget.userData['username'], widget.password);
-      if (mounted) setState(() { _plans = p; _loading = false; });
+      final results = await Future.wait([
+        WorkoutService.fetchAssignedPlans(
+            widget.userData['username'], widget.password),
+        WorkoutService.fetchOwnPlans(
+            widget.userData['username'], widget.password),
+      ]);
+      final assigned = List<dynamic>.from(results[0]);
+      final own = List<dynamic>.from(results[1]);
+      final allIds = assigned.map((p) => p['id']).toSet();
+      final extra = own.where((p) => !allIds.contains(p['id'])).toList();
+      if (mounted) setState(() { _plans = [...assigned, ...extra]; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -104,7 +113,37 @@ class _RecruitWorkoutScreenState extends State<RecruitWorkoutScreen> {
                     ),
                     // ALL PROGRAMS label
                     if (_plans.isNotEmpty)
+                      if (widget.userData['coach'] == null)
                       SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final created = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RecruitWorkoutBuilderScreen(
+                                      userData: widget.userData, password: widget.password),
+                                ),
+                              );
+                              if (created == true) _load();
+                            },
+                            icon: const Icon(Icons.add, size: 16),
+                            label: Text('CREATE YOUR OWN PLAN',
+                                style: GoogleFonts.rajdhani(
+                                    fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: FQColors.purple,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                           child: Text('ALL PROGRAMS',
@@ -130,16 +169,45 @@ class _RecruitWorkoutScreenState extends State<RecruitWorkoutScreen> {
     );
   }
 
-  Widget _emptyState() => Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.fitness_center,
-              size: 56, color: FQColors.muted.withOpacity(0.4)),
-          const SizedBox(height: 16),
-          Text('No training plans assigned yet',
-              style: GoogleFonts.rajdhani(
-                  color: FQColors.muted, fontSize: 16)),
-        ]),
-      );
+  Widget _emptyState() {
+    final hasCoach = widget.userData['coach'] != null;
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.fitness_center,
+            size: 56, color: FQColors.muted.withOpacity(0.4)),
+        const SizedBox(height: 16),
+        Text('No training plans assigned yet',
+            style: GoogleFonts.rajdhani(
+                color: FQColors.muted, fontSize: 16)),
+        if (!hasCoach) ...[
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RecruitWorkoutBuilderScreen(
+                      userData: widget.userData, password: widget.password),
+                ),
+              );
+              if (created == true) _load();
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: Text('CREATE YOUR OWN PLAN',
+                style: GoogleFonts.rajdhani(
+                    fontWeight: FontWeight.bold, fontSize: 14)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FQColors.cyan,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
 
   Widget _todayHeroCard() {
     final plan = _todayPlan;
@@ -347,7 +415,11 @@ class _RecruitWorkoutScreenState extends State<RecruitWorkoutScreen> {
                         fontWeight: FontWeight.bold,
                         fontSize: 16)),
                 const SizedBox(height: 4),
-                _chip('${exercises.length} exercises', FQColors.cyan),
+                _chip('\${exercises.length} exercises', FQColors.cyan),
+                if (plan['is_self_created'] == true) ...[
+                  const SizedBox(height: 4),
+                  _chip('SELF MADE', FQColors.purple),
+                ],
               ]),
             ),
             const Icon(Icons.chevron_right,

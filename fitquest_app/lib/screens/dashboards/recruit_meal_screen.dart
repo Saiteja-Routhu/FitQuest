@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../main.dart';
 import '../../services/nutrition_service.dart';
+import 'recruit_meal_plan_builder_screen.dart';
 
 const _weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const _dayAbbr  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -46,10 +47,16 @@ class _RecruitMealScreenState extends State<RecruitMealScreen> {
             widget.userData['username'], widget.password),
         NutritionService.fetchMySchedule(
             widget.userData['username'], widget.password),
+        NutritionService.fetchOwnDietPlans(
+            widget.userData['username'], widget.password),
       ]);
       if (mounted) {
+        final assigned = List<dynamic>.from(results[0]);
+        final own = List<dynamic>.from(results[2]);
+        final allIds = assigned.map((p) => p['id']).toSet();
+        final extra = own.where((p) => !allIds.contains(p['id'])).toList();
         setState(() {
-          _plans    = results[0];
+          _plans    = [...assigned, ...extra];
           _schedule = results[1];
           _loading  = false;
         });
@@ -194,6 +201,7 @@ class _RecruitMealScreenState extends State<RecruitMealScreen> {
   }
 
   Widget _allPlansView() {
+    final hasCoach = widget.userData['coach'] != null;
     if (_plans.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -202,14 +210,75 @@ class _RecruitMealScreenState extends State<RecruitMealScreen> {
           const SizedBox(height: 16),
           Text('No meal plans assigned yet',
               style: GoogleFonts.rajdhani(color: FQColors.muted, fontSize: 16)),
+          if (!hasCoach) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RecruitMealPlanBuilderScreen(
+                        userData: widget.userData, password: widget.password),
+                  ),
+                );
+                if (created == true) _load();
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('CREATE YOUR OWN MEAL PLAN',
+                  style: GoogleFonts.rajdhani(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FQColors.green,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
         ]),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      itemCount: _plans.length,
-      itemBuilder: (_, i) => _planCard(_plans[i] as Map<String, dynamic>),
-    );
+    return Column(children: [
+      if (!hasCoach)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RecruitMealPlanBuilderScreen(
+                        userData: widget.userData, password: widget.password),
+                  ),
+                );
+                if (created == true) _load();
+              },
+              icon: const Icon(Icons.add, size: 16),
+              label: Text('CREATE YOUR OWN MEAL PLAN',
+                  style: GoogleFonts.rajdhani(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FQColors.green.withOpacity(0.15),
+                foregroundColor: FQColors.green,
+                side: const BorderSide(color: FQColors.green),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ),
+      Expanded(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          itemCount: _plans.length,
+          itemBuilder: (_, i) => _planCard(_plans[i] as Map<String, dynamic>),
+        ),
+      ),
+    ]);
   }
 
   Widget _planCard(Map<String, dynamic> plan) {
@@ -254,6 +323,8 @@ class _RecruitMealScreenState extends State<RecruitMealScreen> {
                 _chip('$kcal kcal', FQColors.gold),
                 _chip('${protein}g protein', FQColors.green),
                 _chip('${water}L water', FQColors.cyan),
+                if (plan['is_self_created'] == true)
+                  _chip('SELF MADE', FQColors.purple),
               ]),
             ]),
           ),

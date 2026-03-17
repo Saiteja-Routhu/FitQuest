@@ -24,14 +24,18 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
     workout_exercises = WorkoutExerciseSerializer(many=True)  # Matches related_name in model
     coach = serializers.StringRelatedField(read_only=True)
     assigned_count = serializers.SerializerMethodField()
+    is_self_created = serializers.SerializerMethodField()
 
     def get_assigned_count(self, obj):
         return obj.assigned_to.count()
 
+    def get_is_self_created(self, obj):
+        return obj.coach is None
+
     class Meta:
         model = WorkoutPlan
         fields = ['id', 'name', 'description', 'day_names', 'coach', 'workout_exercises',
-                  'assigned_count', 'created_at']
+                  'assigned_count', 'is_self_created', 'created_at']
 
     def create(self, validated_data):
         exercises_data = validated_data.pop('workout_exercises')

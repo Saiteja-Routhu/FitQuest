@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../main.dart';
+import 'tdee_screen.dart';
 import '../../services/api_service.dart';
 import '../../services/analytics_service.dart';
 import '../auth_gate_screen.dart';
@@ -302,6 +303,19 @@ class _CoachDashboardState extends State<CoachDashboard> {
                       subtitle: 'Athlete progress timelines',
                       color: FQColors.green,
                       onTap: _showTransformationsPickerSheet,
+                    ),
+                    _menuCard(
+                      icon: Icons.calculate_outlined,
+                      title: 'TDEE CALC',
+                      subtitle: 'Calories & macros',
+                      color: FQColors.gold,
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => TDEEScreen(
+                                  userData: _userData,
+                                  username: _userData['username'] ?? '',
+                                  password: widget.password))),
                     ),
                   ],
                 ),

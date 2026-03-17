@@ -39,13 +39,17 @@ class DietPlanSerializer(serializers.ModelSerializer):
     meals = MealSerializer(many=True, read_only=True)
     supplements = SupplementSerializer(many=True, read_only=True)
     assigned_recruits = UserSerializer(source='assigned_to', many=True, read_only=True)
+    is_self_created = serializers.SerializerMethodField()
+
+    def get_is_self_created(self, obj):
+        return obj.coach is None
 
     class Meta:
         model = DietPlan
         fields = [
             'id', 'name', 'description', 'water_target_liters',
             'total_calories', 'total_protein', 'total_carbs', 'total_fats',
-            'meals', 'supplements', 'assigned_recruits', 'created_at'
+            'meals', 'supplements', 'assigned_recruits', 'is_self_created', 'created_at'
         ]
 
 

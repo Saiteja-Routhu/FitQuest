@@ -17,7 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'id', 'username', 'email', 'role', 'xp', 'level', 'coins',
-            'coach', 'is_new_assignment', 'goal', 'activity_level', 'assessment'
+            'coach', 'is_new_assignment', 'goal', 'activity_level', 'age', 'gender',
+            'height', 'weight', 'assessment'
         ]
 
 

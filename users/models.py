@@ -39,6 +39,8 @@ class CustomUser(AbstractUser):
     weight = models.FloatField(null=True, blank=True)
     activity_level = models.CharField(max_length=50, default="Sedentary")
     goal = models.CharField(max_length=50, default="General Fitness")
+    age = models.IntegerField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=[('male','Male'),('female','Female')], null=True, blank=True)
 
     # Gamification
     xp = models.IntegerField(default=0)

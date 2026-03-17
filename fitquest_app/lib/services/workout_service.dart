@@ -135,4 +135,32 @@ class WorkoutService {
     }
     throw Exception('Failed to log set: ${response.body}');
   }
+  // 9. Fetch athlete self-created plans
+  static Future<List<dynamic>> fetchOwnPlans(String username, String password) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/workouts/my-own/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    ).timeout(_kTimeout);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    }
+    throw Exception('Failed to load own plans');
+  }
+
+  // 10. Create self workout plan (for athletes without coach)
+  static Future<Map<String, dynamic>> createSelfWorkoutPlan(
+      String username, String password, Map<String, dynamic> planData) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.post(
+      Uri.parse('$baseUrl/workouts/create/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+      body: jsonEncode(planData),
+    ).timeout(_kTimeout);
+    if (response.statusCode == 201) {
+      return Map<String, dynamic>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to create plan: ${response.body}');
+  }
 }

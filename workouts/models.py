@@ -30,7 +30,7 @@ class Exercise(models.Model):
 
 
 class WorkoutPlan(models.Model):
-    coach = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='created_plans')
+    coach = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_plans')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     day_names = models.JSONField(default=dict, blank=True)
@@ -38,7 +38,7 @@ class WorkoutPlan(models.Model):
     assigned_to = models.ManyToManyField(CustomUser, related_name='assigned_plans', blank=True)
 
     def __str__(self):
-        return f"{self.name} (by {self.coach.username})"
+        return f"{self.name} (by {self.coach.username if self.coach else 'Self'})"
 
 
 class WorkoutExercise(models.Model):

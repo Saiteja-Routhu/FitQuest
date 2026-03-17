@@ -11,7 +11,7 @@ class ExerciseListView(generics.ListAPIView):
     queryset = Exercise.objects.all()
     serializer_class = ExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None  # 👈 THIS FIXES THE "ONLY 10" BUG
+    pagination_class = None
 
 # 2. Create a Workout Plan
 class CreateWorkoutView(generics.CreateAPIView):
@@ -20,7 +20,12 @@ class CreateWorkoutView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(coach=self.request.user)
+        user = self.request.user
+        if user.role == 'RECRUIT':
+            plan = serializer.save(coach=None)
+            plan.assigned_to.add(user)
+        else:
+            serializer.save(coach=user)
 
 # 3. Assign Plan
 class AssignPlanView(APIView):
@@ -63,7 +68,7 @@ class AssignPlanView(APIView):
 class CoachPlansView(generics.ListAPIView):
     serializer_class = WorkoutPlanSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None # 👈 THIS FIXES THE "EMPTY LIST" BUG
+    pagination_class = None
 
     def get_queryset(self):
         return WorkoutPlan.objects.filter(coach=self.request.user).order_by('-created_at')
@@ -75,6 +80,8 @@ class UpdateDeleteWorkoutPlanView(APIView):
 
     def get_object(self, pk, user):
         try:
+            if user.role == 'RECRUIT':
+                return WorkoutPlan.objects.get(id=pk, coach__isnull=True, assigned_to=user)
             return WorkoutPlan.objects.get(id=pk, coach=user)
         except WorkoutPlan.DoesNotExist:
             raise Http404
@@ -114,3 +121,15 @@ class RecruitAssignedPlansView(generics.ListAPIView):
     def get_queryset(self):
         return self.request.user.assigned_plans.prefetch_related(
             'workout_exercises__exercise').all()
+
+
+# 7. Athlete: Own Self-Created Plans
+class AthleteOwnPlansView(generics.ListAPIView):
+    serializer_class = WorkoutPlanSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return WorkoutPlan.objects.filter(
+            coach__isnull=True, assigned_to=self.request.user
+        ).prefetch_related('workout_exercises__exercise')

@@ -236,4 +236,17 @@ class NutritionService {
     ).timeout(_kTimeout);
     if (response.statusCode != 204) throw Exception('Failed to undo meal completion');
   }
+  // Fetch own self-created diet plans (athlete without coach)
+  static Future<List<dynamic>> fetchOwnDietPlans(String username, String password) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/nutrition/my-own-diet/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    ).timeout(_kTimeout);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    }
+    throw Exception('Failed to load own diet plans');
+  }
 }

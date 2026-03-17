@@ -10,7 +10,7 @@ class FoodItem(models.Model):
         ('per_unit', 'Per Unit'),
     ]
 
-    coach = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='food_items')
+    coach = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='food_items')
     name = models.CharField(max_length=100)
     serving_unit = models.CharField(max_length=20, default="100g")
 
@@ -23,13 +23,15 @@ class FoodItem(models.Model):
     unit_name = models.CharField(max_length=20, default='unit',
         help_text="e.g. 'egg', 'slice', 'scoop'. Used when measurement_type=per_unit")
 
+    is_global = models.BooleanField(default=False)
+
     def __str__(self):
-        return f"{self.name} ({self.coach.username})"
+        return f"{self.name} ({self.coach.username if self.coach else 'Global'})"
 
 
 # 2. THE DIET PLAN
 class DietPlan(models.Model):
-    coach = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='diet_plans')
+    coach = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='diet_plans')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     water_target_liters = models.FloatField(default=3.0)

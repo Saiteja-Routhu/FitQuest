@@ -15,7 +15,8 @@ class PantryView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return FoodItem.objects.filter(coach=self.request.user)
+        from django.db.models import Q
+        return FoodItem.objects.filter(Q(coach=self.request.user) | Q(is_global=True))
 
     def perform_create(self, serializer):
         serializer.save(coach=self.request.user)
@@ -28,7 +29,8 @@ class PantryItemView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return FoodItem.objects.filter(coach=self.request.user)
+        from django.db.models import Q
+        return FoodItem.objects.filter(Q(coach=self.request.user) | Q(is_global=True))
 
 
 # 3. DIET PLANS (List)
@@ -50,12 +52,21 @@ class CreateDietPlanView(APIView):
         try:
             with transaction.atomic():
                 # A. Create Plan
-                plan = DietPlan.objects.create(
-                    coach=request.user,
-                    name=data['name'],
-                    description=data.get('description', ''),
-                    water_target_liters=data.get('water_target', 3.0)
-                )
+                if request.user.role == 'RECRUIT':
+                    plan = DietPlan.objects.create(
+                        coach=None,
+                        name=data['name'],
+                        description=data.get('description', ''),
+                        water_target_liters=data.get('water_target', 3.0)
+                    )
+                    plan.assigned_to.add(request.user)
+                else:
+                    plan = DietPlan.objects.create(
+                        coach=request.user,
+                        name=data['name'],
+                        description=data.get('description', ''),
+                        water_target_liters=data.get('water_target', 3.0)
+                    )
 
                 # B. Add Supplements
                 for supp in data.get('supplements', []):
@@ -140,7 +151,13 @@ class UpdateMealView(APIView):
 
     def post(self, request, pk):
         try:
-            meal = Meal.objects.get(id=pk, plan__coach=request.user)
+            from django.db.models import Q
+            meal = Meal.objects.get(
+                id=pk,
+                plan__in=DietPlan.objects.filter(
+                    Q(coach=request.user) | Q(coach__isnull=True, assigned_to=request.user)
+                )
+            )
 
             # 1. Clear old items
             meal.items.all().delete()
@@ -332,3 +349,14 @@ class MealCompletionDeleteView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except MealCompletion.DoesNotExist:
             return Response({'error': 'Not found'}, status=404)
+
+# 15. ATHLETE: Own Self-Created Diet Plans
+class AthleteOwnDietPlansView(generics.ListAPIView):
+    serializer_class = DietPlanSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return DietPlan.objects.filter(
+            coach__isnull=True, assigned_to=self.request.user
+        ).prefetch_related('meals__items__food_item', 'supplements')
