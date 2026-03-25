@@ -154,6 +154,31 @@ class AnalyticsService {
     throw Exception('Failed to load set logs');
   }
 
+  static Future<List<dynamic>> fetchMySetLogsForDate(String u, String p, String date) async {
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/my-sets/?date=$date'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Failed to load set logs for date');
+  }
+
+  static Future<Map<String, dynamic>> fetchDailySummary(
+      String u, String p, int year, int month) async {
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/analytics/daily-summary/?year=$year&month=$month'),
+          headers: _headers(u, p),
+        )
+        .timeout(_kTimeout);
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to load daily summary');
+  }
+
   static Future<List<dynamic>> fetchAthleteSetLogs(
       String u, String p, int athleteId) async {
     final response = await http

@@ -20,7 +20,34 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         return WorkoutLog.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        workout_log = serializer.save(user=self.request.user)
+
+        # Step 2.2: Auto-mark workout quests as completed
+        user = self.request.user
+        today = date.today()
+        today_day = today.strftime('%A')
+
+        from workouts.models import WorkoutPlan
+        from quests.models import DailyQuestCompletion
+
+        # Find plans assigned to user that have exercises for today
+        assigned_plans = WorkoutPlan.objects.filter(assigned_to=user)
+        for plan in assigned_plans:
+            has_today = plan.workout_exercises.filter(day_label=today_day).exists()
+            if has_today:
+                # Mark as completed
+                completion, created = DailyQuestCompletion.objects.get_or_create(
+                    user=user,
+                    source_type='workout',
+                    source_id=plan.id,
+                    date=today,
+                )
+                if created:
+                    # Award rewards (matching CompleteDailyQuestView logic)
+                    user.xp += 100
+                    user.coins += 10
+                    user.level = max(1, user.xp // 500 + 1)
+                    user.save()
 
 
 # ── Daily Activity (water + steps) ───────────────────────────────────────────
@@ -388,6 +415,7 @@ class LogSetView(APIView):
         reps = request.data.get('reps')
         weight_kg = request.data.get('weight_kg')
         effectiveness = request.data.get('effectiveness', 'Just Right')
+        set_type = request.data.get('set_type', 'Regular')
 
         if not exercise_name or reps is None:
             return Response({'error': 'exercise_name and reps required'}, status=400)
@@ -404,6 +432,7 @@ class LogSetView(APIView):
             exercise_name=exercise_name,
             workout_plan_name=plan_name,
             date=today,
+            set_type=set_type,
             set_number=set_number,
             reps=int(reps),
             weight_kg=float(weight_kg) if weight_kg is not None else None,
@@ -427,22 +456,103 @@ class MySetLogsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        cutoff = date.today() - timedelta(days=30)
-        logs = WorkoutSetLog.objects.filter(
-            user=request.user, date__gte=cutoff
-        ).order_by('-logged_at')
+        date_param = request.query_params.get('date')
+        if date_param:
+            try:
+                target_date = date.fromisoformat(date_param)
+                logs = WorkoutSetLog.objects.filter(
+                    user=request.user, date=target_date
+                ).order_by('logged_at')
+            except ValueError:
+                return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+        else:
+            cutoff = date.today() - timedelta(days=30)
+            logs = WorkoutSetLog.objects.filter(
+                user=request.user, date__gte=cutoff
+            ).order_by('-logged_at')
 
         return Response([{
             'id': l.id,
             'exercise_name': l.exercise_name,
             'workout_plan_name': l.workout_plan_name,
             'date': str(l.date),
+            'set_type': l.set_type,
             'set_number': l.set_number,
             'reps': l.reps,
             'weight_kg': l.weight_kg,
             'effectiveness': l.effectiveness,
             'logged_at': str(l.logged_at),
         } for l in logs])
+
+
+class DailySummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        year = int(request.query_params.get('year', date.today().year))
+        month = int(request.query_params.get('month', date.today().month))
+
+        import calendar
+        from quests.models import DailyQuestCompletion
+        from workouts.models import WorkoutPlan
+        from nutrition.models import DietSchedule
+
+        _, last_day = calendar.monthrange(year, month)
+        summary = {}
+
+        # Fetch all completions for the month
+        completions = DailyQuestCompletion.objects.filter(
+            user=user, date__year=year, date__month=month
+        )
+        completion_map = {}
+        for c in completions:
+            if c.date not in completion_map:
+                completion_map[c.date] = []
+            completion_map[c.date].append((c.source_type, c.source_id))
+
+        # Fetch assigned plans and diet schedules
+        assigned_plans = list(WorkoutPlan.objects.filter(assigned_to=user).prefetch_related('workout_exercises'))
+        diet_schedules = list(DietSchedule.objects.filter(recruit=user).select_related('diet_plan'))
+
+        for day in range(1, last_day + 1):
+            curr_date = date(year, month, day)
+            day_name = curr_date.strftime('%A')
+            
+            # Quests expected for this day
+            expected_quests = []
+            for plan in assigned_plans:
+                if plan.workout_exercises.filter(day_label=day_name).exists():
+                    expected_quests.append(('workout', plan.id))
+            
+            for ds in diet_schedules:
+                if ds.day_of_week == day_name and ds.diet_plan:
+                    expected_quests.append(('nutrition', ds.diet_plan.id))
+
+            # Check if all expected quests are completed
+            day_completions = completion_map.get(curr_date, [])
+            all_done = True
+            if not expected_quests:
+                all_done = False # Or True if no quests means "done"? Usually, "done" means completed assigned tasks.
+                # Let's say if no tasks are assigned, they can't "complete all".
+                # But requirement says "True only if all assigned quests ... are done".
+                # If 0 assigned, 0 done, then all assigned (none) are done.
+                # However, for gamification, we usually want a checkmark ONLY if they actually did something.
+                if not day_completions:
+                     all_done = False
+            else:
+                for eq in expected_quests:
+                    if eq not in day_completions:
+                        all_done = False
+                        break
+
+            summary[str(curr_date)] = {
+                'all_quests_completed': all_done,
+                'quest_count': len(expected_quests),
+                'completed_count': len(day_completions)
+            }
+
+        return Response(summary)
 
 
 class AthleteSetLogsView(APIView):

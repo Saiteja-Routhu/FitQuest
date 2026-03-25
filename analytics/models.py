@@ -80,8 +80,15 @@ class UserActivityStatus(models.Model):
 class WorkoutSetLog(models.Model):
     EFFECTIVENESS_CHOICES = [
         ('Too Easy', 'Too Easy'),
+        ('Easy', 'Easy'),
         ('Just Right', 'Just Right'),
-        ('Very Hard', 'Very Hard'),
+        ('Hard', 'Hard'),
+        ('Too Hard', 'Too Hard'),
+    ]
+    SET_TYPE_CHOICES = [
+        ('Regular', 'Regular'),
+        ('Warm-up', 'Warm-up'),
+        ('Drop Set', 'Drop Set'),
     ]
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -90,6 +97,7 @@ class WorkoutSetLog(models.Model):
     exercise_name = models.CharField(max_length=100)
     workout_plan_name = models.CharField(max_length=100, blank=True)
     date = models.DateField(default=date.today)
+    set_type = models.CharField(max_length=20, choices=SET_TYPE_CHOICES, default='Regular')
     set_number = models.IntegerField(default=1)
     reps = models.IntegerField()
     weight_kg = models.FloatField(null=True, blank=True)

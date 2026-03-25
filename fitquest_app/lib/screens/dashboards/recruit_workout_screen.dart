@@ -908,10 +908,18 @@ class _SetLogSheetState extends State<_SetLogSheet> {
   int _reps = 10;
   double? _weightKg;
   String _effectiveness = 'Just Right';
+  String _setType = 'Regular';
   bool _saving = false;
   final _weightCtrl = TextEditingController();
 
-  static const _effectivenessOptions = ['Too Easy', 'Just Right', 'Very Hard'];
+  static const _effectivenessOptions = [
+    'Too Easy',
+    'Easy',
+    'Just Right',
+    'Hard',
+    'Too Hard'
+  ];
+  static const _setTypes = ['Regular', 'Warm-up', 'Drop Set'];
 
   @override
   void dispose() {
@@ -931,6 +939,7 @@ class _SetLogSheetState extends State<_SetLogSheet> {
           'reps': _reps,
           'weight_kg': _weightKg,
           'effectiveness': _effectiveness,
+          'set_type': _setType,
         },
       );
       if (!mounted) return;
@@ -938,8 +947,7 @@ class _SetLogSheetState extends State<_SetLogSheet> {
       widget.onLogged(newCount);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Set ${result['set_number']} logged! $_reps reps'),
+          content: Text('Set ${result['set_number']} logged! $_reps reps'),
           backgroundColor: FQColors.green));
     } catch (e) {
       if (mounted) {
@@ -953,8 +961,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: const BoxDecoration(
           color: FQColors.surface,
@@ -981,6 +989,43 @@ class _SetLogSheetState extends State<_SetLogSheet> {
               style: const TextStyle(color: FQColors.muted, fontSize: 12)),
           const SizedBox(height: 20),
 
+          // Set Type Selector
+          Row(children: _setTypes.map((t) {
+            final sel = _setType == t;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _setType = t),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sel ? FQColors.cyan.withOpacity(0.15) : FQColors.card,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: sel ? FQColors.cyan : FQColors.border),
+                  ),
+                  child: Text(t,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.rajdhani(
+                          color: sel ? FQColors.cyan : FQColors.muted,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11)),
+                ),
+              ),
+            );
+          }).toList()),
+          if (_setType == 'Drop Set')
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('🔥 DROP SET: Push to failure!',
+                  style: GoogleFonts.rajdhani(
+                      color: FQColors.red,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10)),
+            ),
+
+          const SizedBox(height: 16),
+
           // Reps counter
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Text('REPS',
@@ -988,7 +1033,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                     color: FQColors.muted, fontSize: 12, letterSpacing: 2)),
             const SizedBox(width: 16),
             IconButton(
-              onPressed: () => setState(() => _reps = (_reps - 1).clamp(1, 999)),
+              onPressed: () =>
+                  setState(() => _reps = (_reps - 1).clamp(1, 999)),
               icon: const Icon(Icons.remove_circle_outline,
                   color: FQColors.cyan, size: 28),
             ),
@@ -1008,8 +1054,7 @@ class _SetLogSheetState extends State<_SetLogSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _weightCtrl,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(color: Colors.white),
             onChanged: (v) => _weightKg = double.tryParse(v),
             decoration: const InputDecoration(
@@ -1026,19 +1071,22 @@ class _SetLogSheetState extends State<_SetLogSheet> {
               style: GoogleFonts.rajdhani(
                   color: FQColors.muted, fontSize: 11, letterSpacing: 2)),
           const SizedBox(height: 8),
-          Row(children: _effectivenessOptions.map((opt) {
-            final selected = _effectiveness == opt;
-            final color = opt == 'Too Easy'
-                ? FQColors.green
-                : opt == 'Very Hard'
-                    ? FQColors.red
-                    : FQColors.gold;
-            return Expanded(
-              child: GestureDetector(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _effectivenessOptions.map((opt) {
+              final selected = _effectiveness == opt;
+              Color color = FQColors.gold;
+              if (opt == 'Too Easy') color = FQColors.green;
+              if (opt == 'Easy') color = Colors.lightGreen;
+              if (opt == 'Hard') color = Colors.orange;
+              if (opt == 'Too Hard') color = FQColors.red;
+
+              return GestureDetector(
                 onTap: () => setState(() => _effectiveness = opt),
                 child: Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: selected ? color.withOpacity(0.15) : FQColors.card,
                     borderRadius: BorderRadius.circular(8),
@@ -1054,7 +1102,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                 ),
               ),
             );
-          }).toList()),
+          }).toList(),
+          ),
 
           const SizedBox(height: 20),
           SizedBox(

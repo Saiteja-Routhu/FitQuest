@@ -5,6 +5,7 @@ from .views import (
     BodyProgressDeleteView, PhotoGalleryView, AthleteBodyProgressView,
     HeartbeatView, TeamActivityView, LogSetView, MySetLogsView,
     AthleteSetLogsView, AthleteAnalyticsSummaryView, SelfTransformationsView,
+    DailySummaryView,
 )
 
 router = DefaultRouter()
@@ -13,6 +14,7 @@ router.register(r'logs', WorkoutLogViewSet, basename='workoutlog')
 urlpatterns = [
     path('', include(router.urls)),
     path('daily/', DailyActivityView.as_view(), name='daily-activity'),
+    path('daily-summary/', DailySummaryView.as_view(), name='daily-summary'),
     path('body-progress/', BodyProgressListView.as_view(), name='body-progress'),
     path('body-progress/<int:pk>/', BodyProgressDeleteView.as_view(), name='body-progress-delete'),
     path('photos/', PhotoGalleryView.as_view(), name='photo-gallery'),

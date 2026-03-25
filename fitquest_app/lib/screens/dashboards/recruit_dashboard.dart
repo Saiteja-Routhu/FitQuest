@@ -89,7 +89,11 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
           children: [
             _buildHeader(context, username, level, xp, coins, goal, xpProgress),
             // Calendar strip
-            _CalendarStrip(todayActivity: _todayActivity),
+            _CalendarStrip(
+              todayActivity: _todayActivity,
+              userData: _userData,
+              password: widget.password,
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -464,8 +468,14 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
 // ── Calendar Strip ─────────────────────────────────────────────────────────────
 class _CalendarStrip extends StatefulWidget {
   final Map<String, dynamic> todayActivity;
+  final Map<String, dynamic> userData;
+  final String password;
 
-  const _CalendarStrip({required this.todayActivity});
+  const _CalendarStrip({
+    required this.todayActivity,
+    required this.userData,
+    required this.password,
+  });
 
   @override
   State<_CalendarStrip> createState() => _CalendarStripState();
@@ -473,10 +483,13 @@ class _CalendarStrip extends StatefulWidget {
 
 class _CalendarStripState extends State<_CalendarStrip> {
   final _scrollController = ScrollController();
+  Map<String, dynamic> _monthlySummary = {};
+  bool _loadingSummary = false;
 
   @override
   void initState() {
     super.initState();
+    _loadSummary();
     // Auto-scroll to today (last item) after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -489,10 +502,38 @@ class _CalendarStripState extends State<_CalendarStrip> {
     });
   }
 
+  Future<void> _loadSummary() async {
+    setState(() => _loadingSummary = true);
+    try {
+      final now = DateTime.now();
+      final data = await AnalyticsService.fetchDailySummary(
+          widget.userData['username'], widget.password, now.year, now.month);
+      if (mounted) setState(() => _monthlySummary = data);
+    } catch (_) {} finally {
+      if (mounted) setState(() => _loadingSummary = false);
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _showDayDetails(DateTime date) async {
+    final dateStr =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DayDetailsSheet(
+        date: date,
+        userData: widget.userData,
+        password: widget.password,
+      ),
+    );
   }
 
   @override
@@ -501,16 +542,8 @@ class _CalendarStripState extends State<_CalendarStrip> {
     final days = List.generate(14, (i) => now.subtract(Duration(days: 13 - i)));
     final dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    // Today's goal completion
-    final waterMl = widget.todayActivity['water_ml'] ?? 0;
-    final waterGoal = widget.todayActivity['water_goal_ml'] ?? 2500;
-    final steps = widget.todayActivity['steps'] ?? 0;
-    final stepGoal = widget.todayActivity['step_goal'] ?? 8000;
-    final waterMet = waterMl >= waterGoal && waterGoal > 0;
-    final stepsMet = steps >= stepGoal && stepGoal > 0;
-
     return Container(
-      height: 88,
+      height: 94,
       decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: FQColors.border))),
       child: ListView.builder(
@@ -522,65 +555,224 @@ class _CalendarStripState extends State<_CalendarStrip> {
           final day = days[i];
           final isToday = i == 13;
           final dayLabel = dayLabels[day.weekday - 1];
+          final dateStr =
+              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+          final dayData = _monthlySummary[dateStr];
+          final allDone = dayData != null && dayData['all_quests_completed'] == true;
 
-          return Container(
-            width: 52,
-            margin: const EdgeInsets.only(right: 6),
-            decoration: BoxDecoration(
-              color: isToday
-                  ? FQColors.cyan.withOpacity(0.08)
-                  : FQColors.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
+          return GestureDetector(
+            onTap: () => _showDayDetails(day),
+            child: Container(
+              width: 52,
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
                 color: isToday
-                    ? FQColors.cyan.withOpacity(0.5)
-                    : FQColors.border,
+                    ? FQColors.cyan.withOpacity(0.08)
+                    : FQColors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isToday
+                      ? FQColors.cyan.withOpacity(0.5)
+                      : FQColors.border,
+                ),
               ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(dayLabel,
-                    style: TextStyle(
-                        color: isToday ? FQColors.cyan : FQColors.muted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text('${day.day}',
-                    style: TextStyle(
-                        color: isToday ? Colors.white : FQColors.muted,
-                        fontSize: 15,
-                        fontWeight: isToday
-                            ? FontWeight.bold
-                            : FontWeight.normal)),
-                const SizedBox(height: 4),
-                // Micro dots: water=cyan, steps=green
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  _dot(isToday && waterMet ? FQColors.cyan : Colors.transparent,
-                      isToday && !waterMet ? FQColors.border : null),
-                  const SizedBox(width: 3),
-                  _dot(isToday && stepsMet ? FQColors.green : Colors.transparent,
-                      isToday && !stepsMet ? FQColors.border : null),
-                ]),
-              ],
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(dayLabel,
+                          style: TextStyle(
+                              color: isToday ? FQColors.cyan : FQColors.muted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text('${day.day}',
+                          style: TextStyle(
+                              color: isToday ? Colors.white : FQColors.muted,
+                              fontSize: 15,
+                              fontWeight: isToday
+                                  ? FontWeight.bold
+                                  : FontWeight.normal)),
+                      const SizedBox(height: 4),
+                      if (allDone)
+                        const Icon(Icons.check_circle,
+                            color: FQColors.green, size: 14)
+                      else
+                        const SizedBox(height: 14),
+                    ],
+                  ),
+                  if (isToday)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                            color: FQColors.cyan, shape: BoxShape.circle),
+                      ),
+                    ),
+                ],
+              ),
             ),
           );
         },
       ),
     );
   }
+}
 
-  Widget _dot(Color color, Color? borderColor) {
+class _DayDetailsSheet extends StatefulWidget {
+  final DateTime date;
+  final Map<String, dynamic> userData;
+  final String password;
+
+  const _DayDetailsSheet({
+    required this.date,
+    required this.userData,
+    required this.password,
+  });
+
+  @override
+  State<_DayDetailsSheet> createState() => _DayDetailsSheetState();
+}
+
+class _DayDetailsSheetState extends State<_DayDetailsSheet> {
+  List<dynamic> _logs = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final dateStr =
+          '${widget.date.year}-${widget.date.month.toString().padLeft(2, '0')}-${widget.date.day.toString().padLeft(2, '0')}';
+      final logs = await AnalyticsService.fetchMySetLogsForDate(
+          widget.userData['username'], widget.password, dateStr);
+      if (mounted) setState(() { _logs = logs; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dateStr =
+        '${widget.date.day} ${_monthName(widget.date.month)} ${widget.date.year}';
+
     return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: borderColor != null
-            ? Border.all(color: borderColor, width: 1)
-            : null,
+      decoration: const BoxDecoration(
+        color: FQColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: FQColors.border)),
       ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+              color: FQColors.muted.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(2)),
+        ),
+        Text('ACTIVITY HISTORY',
+            style: GoogleFonts.rajdhani(
+                color: FQColors.muted, fontSize: 11, letterSpacing: 3)),
+        Text(dateStr.toUpperCase(),
+            style: GoogleFonts.rajdhani(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        if (_loading)
+          const Center(child: CircularProgressIndicator(color: FQColors.cyan))
+        else if (_logs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Column(children: [
+              Icon(Icons.history, color: FQColors.muted.withOpacity(0.3), size: 48),
+              const SizedBox(height: 12),
+              const Text('No workout logs found for this day',
+                  style: TextStyle(color: FQColors.muted)),
+            ]),
+          )
+        else
+          ConstrainedBox(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _logs.length,
+              itemBuilder: (_, i) {
+                final log = _logs[i];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: FQColors.card,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: FQColors.border),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: FQColors.cyan.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.fitness_center,
+                          color: FQColors.cyan, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(log['exercise_name'] ?? 'Exercise',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                        Text(
+                            'Set ${log['set_number']} · ${log['set_type'] ?? 'Regular'}',
+                            style: const TextStyle(
+                                color: FQColors.muted, fontSize: 11)),
+                      ]),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('${log['reps']} REPS',
+                          style: GoogleFonts.rajdhani(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14)),
+                      if (log['weight_kg'] != null)
+                        Text('${log['weight_kg']} KG',
+                            style: const TextStyle(
+                                color: FQColors.gold,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11)),
+                    ]),
+                  ]),
+                );
+              },
+            ),
+          ),
+      ]),
     );
+  }
+
+  String _monthName(int m) {
+    const names = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return names[m];
   }
 }
