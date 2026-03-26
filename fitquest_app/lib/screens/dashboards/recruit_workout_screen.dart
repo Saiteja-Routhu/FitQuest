@@ -1100,9 +1100,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                           fontWeight: FontWeight.bold,
                           fontSize: 11)),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
           ),
 
           const SizedBox(height: 20),
