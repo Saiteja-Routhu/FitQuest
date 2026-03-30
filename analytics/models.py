@@ -101,7 +101,14 @@ class WorkoutSetLog(models.Model):
     set_number = models.IntegerField(default=1)
     reps = models.IntegerField()
     weight_kg = models.FloatField(null=True, blank=True)
+    
+    # Cardio metrics
+    treadmill_incline = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    treadmill_speed = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
     effectiveness = models.CharField(max_length=20, choices=EFFECTIVENESS_CHOICES)
+    video_url = models.URLField(max_length=500, null=True, blank=True)
+    pose_data = models.JSONField(null=True, blank=True)
     logged_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

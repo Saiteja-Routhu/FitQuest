@@ -37,3 +37,23 @@ class VoiceCommand(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.command_text}"
+
+
+class AICoachMessage(models.Model):
+    INTERVENTION_CHOICES = [
+        ('recovery', 'Recovery Intervation'),
+        ('progressive_overload', 'Progressive Overload Tips'),
+        ('consistency', 'Consistency Check'),
+        ('milestone', 'Milestone Celebration'),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_coach_messages')
+    message = models.TextField()
+    intervention_type = models.CharField(max_length=50, choices=INTERVENTION_CHOICES)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"AI Coach to {self.user.username}: {self.message[:30]}..."

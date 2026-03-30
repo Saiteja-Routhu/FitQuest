@@ -12,11 +12,12 @@ class AssessmentFormSerializer(serializers.ModelSerializer):
 # 2. User Serializer (Expanded)
 class UserSerializer(serializers.ModelSerializer):
     assessment = AssessmentFormSerializer(read_only=True)  # Nested data
+    coins = serializers.IntegerField(source='coin_balance', read_only=True)
 
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'role', 'xp', 'level', 'coins',
+            'id', 'username', 'email', 'role', 'xp', 'level', 'coins', 'coin_balance', 'player_class',
             'coach', 'is_new_assignment', 'goal', 'activity_level', 'age', 'gender',
             'height', 'weight', 'assessment'
         ]
@@ -51,11 +52,13 @@ class RegisterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"access_key": "Invalid or used access key for this role."})
 
         user = CustomUser.objects.create_user(**validated_data)
+        user.coin_balance = 500
 
         if role == 'RECRUIT':
             user.height = height
             user.weight = weight
-            user.save()
+            
+        user.save()
 
         return user
 

@@ -1,7 +1,12 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../main.dart';
 import '../../services/nutrition_service.dart';
 import '../../services/api_service.dart';
@@ -29,6 +34,7 @@ class ScoutReportScreen extends StatefulWidget {
 class _ScoutReportScreenState extends State<ScoutReportScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final GlobalKey _shareKey = GlobalKey();
 
   @override
   void initState() {
@@ -40,6 +46,26 @@ class _ScoutReportScreenState extends State<ScoutReportScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _shareStats() async {
+    try {
+      RenderRepaintBoundary boundary =
+          _shareKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      var byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      var pngBytes = byteData!.buffer.asUint8List();
+
+      final directory = await getTemporaryDirectory();
+      final imagePath = await File('${directory.path}/stats_share.png').create();
+      await imagePath.writeAsBytes(pngBytes);
+
+      await Share.shareXFiles([XFile(imagePath.path)], text: 'My FitQuest Progress!');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing stats: $e')),
+      );
+    }
   }
 
   @override
@@ -59,8 +85,18 @@ class _ScoutReportScreenState extends State<ScoutReportScreen>
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.share_outlined, color: FQColors.cyan),
+                onPressed: _shareStats,
+                tooltip: 'Share Stats',
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
-              background: _buildProfileHeader(r, username),
+              background: RepaintBoundary(
+                key: _shareKey,
+                child: _buildProfileHeader(r, username),
+              ),
             ),
             bottom: TabBar(
               controller: _tabController,

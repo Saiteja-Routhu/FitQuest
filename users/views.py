@@ -191,6 +191,12 @@ class AssessmentCreateView(APIView):
     def post(self, request):
         # Only recruits fill out assessment forms
         data = request.data.copy()
+        
+        player_class = data.get('player_class')
+        if player_class:
+            request.user.player_class = player_class
+            request.user.save()
+
         AssessmentForm.objects.update_or_create(
             user=request.user,
             defaults={

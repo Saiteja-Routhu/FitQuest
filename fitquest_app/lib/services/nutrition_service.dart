@@ -249,4 +249,25 @@ class NutritionService {
     }
     throw Exception('Failed to load own diet plans');
   }
+
+  // --- SUPPLEMENT LOGS ---
+  static Future<List<dynamic>> fetchSupplementLogs(String username, String password, String date) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/nutrition/supplement-logs/?date=$date'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+    ).timeout(_kTimeout);
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Failed to load supplement logs');
+  }
+
+  static Future<void> toggleSupplementLog(String username, String password, String date, String name, bool isTaken) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    final response = await http.post(
+      Uri.parse('$baseUrl/nutrition/supplement-logs/'),
+      headers: {"Content-Type": "application/json", "Authorization": basicAuth},
+      body: jsonEncode({'date': date, 'supplement_name': name, 'is_taken': isTaken}),
+    ).timeout(_kTimeout);
+    if (response.statusCode != 200) throw Exception('Failed to update supplement');
+  }
 }

@@ -25,6 +25,10 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
   int _currentStep = 0;
   bool _submitting = false;
 
+  // Step 0: Class
+  String _playerClass = 'Vanguard';
+  static const _playerClasses = ['Vanguard', 'Assassin', 'Ranger', 'Mage'];
+
   // Step 1: Body Measurements
   final _waistCtrl = TextEditingController();
   final _chestCtrl = TextEditingController();
@@ -70,7 +74,7 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
   }
 
   void _next() {
-    if (_currentStep < 4) {
+    if (_currentStep < 5) {
       _pageController.nextPage(
           duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
       setState(() => _currentStep++);
@@ -91,6 +95,7 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
     setState(() => _submitting = true);
     try {
       final data = {
+        'player_class': _playerClass,
         'waist_circumference': double.tryParse(_waistCtrl.text) ?? 0.0,
         'chest_size': double.tryParse(_chestCtrl.text),
         'bicep_size': double.tryParse(_bicepCtrl.text),
@@ -139,6 +144,7 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
   @override
   Widget build(BuildContext context) {
     final steps = [
+      'Player Class',
       'Body Measurements',
       'Medical History',
       'Diet & Nutrition',
@@ -157,6 +163,7 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
+                  _buildStepClass(),
                   _buildStep1(),
                   _buildStep2(),
                   _buildStep3(),
@@ -189,14 +196,14 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
         Text('ATHLETE ASSESSMENT', style: GoogleFonts.rajdhani(
             color: Colors.white, fontSize: 22,
             fontWeight: FontWeight.bold, letterSpacing: 1)),
-        Text('Step ${_currentStep + 1} of 5 — ${steps[_currentStep]}',
+        Text('Step ${_currentStep + 1} of 6 — ${steps[_currentStep]}',
             style: const TextStyle(color: FQColors.muted, fontSize: 12)),
         const SizedBox(height: 12),
         // Progress bar
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: (_currentStep + 1) / 5,
+            value: (_currentStep + 1) / 6,
             backgroundColor: FQColors.border,
             color: FQColors.cyan,
             minHeight: 5,
@@ -244,7 +251,7 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
                     width: 20, height: 20,
                     child: CircularProgressIndicator(
                         color: Colors.black, strokeWidth: 2))
-                : Text(_currentStep == 4 ? 'SUBMIT' : 'NEXT',
+                : Text(_currentStep == 5 ? 'SUBMIT' : 'NEXT',
                     style: GoogleFonts.rajdhani(
                         fontWeight: FontWeight.w800,
                         fontSize: 16, letterSpacing: 2)),
@@ -281,6 +288,63 @@ class _AssessmentWizardScreenState extends State<AssessmentWizardScreen> {
         hintStyle: const TextStyle(color: FQColors.muted, fontSize: 13),
       ),
     );
+  }
+
+  // ── Step 0: Player Class ───────────────────────────────────────────────────
+  Widget _buildStepClass() {
+    return _stepContainer([
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: FQColors.gold.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: FQColors.gold.withOpacity(0.2)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.shield, color: FQColors.gold, size: 18),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Choose your starting class. This represents your primary fitness focus.',
+              style: TextStyle(color: FQColors.muted, fontSize: 12),
+            ),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 20),
+      ..._playerClasses.map((c) {
+        final isSelected = _playerClass == c;
+        return GestureDetector(
+          onTap: () => setState(() => _playerClass = c),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isSelected ? FQColors.cyan.withOpacity(0.1) : FQColors.surface,
+              border: Border.all(color: isSelected ? FQColors.cyan : FQColors.border),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  c == 'Vanguard' ? Icons.fitness_center :
+                  c == 'Assassin' ? Icons.directions_run :
+                  c == 'Ranger'   ? Icons.directions_walk :
+                                    Icons.auto_fix_high,
+                  color: isSelected ? FQColors.cyan : FQColors.muted,
+                ),
+                const SizedBox(width: 16),
+                Text(c, style: TextStyle(
+                  color: isSelected ? Colors.white : FQColors.muted,
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                )),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    ]);
   }
 
   // ── Step 1: Body Measurements ──────────────────────────────────────────────

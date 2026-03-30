@@ -18,6 +18,10 @@ import 'body_scan_screen.dart';
 import 'super_coach_services_screen.dart';
 import 'transformations_screen.dart';
 import 'tdee_screen.dart';
+import 'ai_coach_inbox_screen.dart';
+import 'pose_playback_screen.dart';
+import '../../services/ai_coach_service.dart';
+import 'guild_hub_screen.dart';
 
 class RecruitDashboard extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -35,12 +39,14 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
 
   // Activity data for calendar dots
   Map<String, dynamic> _todayActivity = {};
+  int _unreadAICount = 0;
 
   @override
   void initState() {
     super.initState();
     _userData = Map<String, dynamic>.from(widget.userData);
     _loadActivity();
+    _loadAIMessages();
   }
 
   void _openProfile() async {
@@ -59,6 +65,18 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
       final data = await AnalyticsService.fetchTodayActivity(
           _userData['username'] ?? '', widget.password);
       if (mounted) setState(() => _todayActivity = data);
+    } catch (_) {}
+  }
+
+  Future<void> _loadAIMessages() async {
+    try {
+      final msgs = await AICoachService.fetchMessages(
+          _userData['username'] ?? '', widget.password);
+      if (mounted) {
+        setState(() {
+          _unreadAICount = msgs.where((m) => m['is_read'] == false).length;
+        });
+      }
     } catch (_) {}
   }
 
@@ -87,7 +105,7 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(context, username, level, xp, coins, goal, xpProgress),
+            _buildHeader(context, username, level, xp, coins, goal, xpProgress, _userData['player_class']),
             // Calendar strip
             _CalendarStrip(
               todayActivity: _todayActivity,
@@ -152,6 +170,19 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
                           context,
                           MaterialPageRoute(
                               builder: (_) => RecruitMealScreen(
+                                  userData: _userData,
+                                  password: widget.password))),
+                    ),
+                    _menuCard(
+                      context: context,
+                      icon: Icons.shield_outlined,
+                      title: 'GUILD HUB',
+                      subtitle: 'Squad Boss Raids',
+                      color: FQColors.cyan,
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => GuildHubScreen(
                                   userData: _userData,
                                   password: widget.password))),
                     ),
@@ -277,6 +308,46 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
                                   username: _userData['username'] ?? '',
                                   password: widget.password))),
                     ),
+                    _menuCard(
+                      context: context,
+                      icon: Icons.play_circle_outline,
+                      title: 'PLAYBACK',
+                      subtitle: 'Review latest session',
+                      color: FQColors.purple,
+                      onTap: () async {
+                        try {
+                          final logs = await AnalyticsService.fetchMySetLogs(
+                              _userData['username'], widget.password);
+                          final latestWithVideo = logs.firstWhere(
+                              (l) => l['video_url'] != null && l['pose_data'] != null,
+                              orElse: () => null);
+                          
+                          if (latestWithVideo != null && mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PosePlaybackScreen(
+                                  videoUrl: latestWithVideo['video_url'],
+                                  poseData: jsonDecode(latestWithVideo['pose_data']),
+                                ),
+                              ),
+                            );
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('No recorded sessions found.'))
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error loading playback: $e'))
+                            );
+                          }
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -288,7 +359,7 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
   }
 
   Widget _buildHeader(BuildContext context, String username, int level, int xp,
-      int coins, String goal, double xpProgress) {
+      int coins, String goal, double xpProgress, String? playerClass) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
       decoration: const BoxDecoration(
@@ -342,7 +413,49 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
                       fontSize: 14)),
             ]),
           ),
-          const SizedBox(width: 8),
+          IconButton(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.auto_awesome_outlined, color: Colors.purpleAccent),
+                  if (_unreadAICount > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: Text(
+                          '$_unreadAICount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AICoachInboxScreen(
+                      userData: _userData,
+                      password: widget.password,
+                    ),
+                  ),
+                );
+                _loadAIMessages();
+              }),
+          const SizedBox(width: 4),
           IconButton(
               icon: const Icon(Icons.logout, color: FQColors.muted),
               onPressed: () => _logout(context)),
@@ -366,6 +479,22 @@ class _RecruitDashboardState extends State<RecruitDashboard> {
                       fontSize: 12)),
             ]),
           ),
+          if (playerClass != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: FQColors.cyan.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: FQColors.cyan.withOpacity(0.3)),
+              ),
+              child: Text(playerClass.toUpperCase(),
+                  style: GoogleFonts.rajdhani(
+                      color: FQColors.cyan,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11)),
+            ),
+          ],
           const SizedBox(width: 10),
           Expanded(
             child: Column(

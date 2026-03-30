@@ -1,6 +1,6 @@
-from rest_framework import viewsets, permissions
-from .models import PoseAnalysis, RecoveryScore
-from .serializers import PoseAnalysisSerializer, RecoveryScoreSerializer
+from rest_framework import viewsets, permissions, mixins
+from .models import PoseAnalysis, RecoveryScore, AICoachMessage
+from .serializers import PoseAnalysisSerializer, RecoveryScoreSerializer, AICoachMessageSerializer
 
 
 class PoseAnalysisViewSet(viewsets.ModelViewSet):
@@ -20,3 +20,13 @@ class RecoveryScoreViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return RecoveryScore.objects.filter(user=self.request.user)
+
+
+class AICoachMessageViewSet(mixins.ListModelMixin,
+                             mixins.UpdateModelMixin,
+                             viewsets.GenericViewSet):
+    serializer_class = AICoachMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return AICoachMessage.objects.filter(user=self.request.user)

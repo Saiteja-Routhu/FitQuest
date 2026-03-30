@@ -45,7 +45,15 @@ class CustomUser(AbstractUser):
     # Gamification
     xp = models.IntegerField(default=0)
     level = models.IntegerField(default=1)
-    coins = models.IntegerField(default=0)
+    coin_balance = models.IntegerField(default=0)
+
+    PLAYER_CLASS_CHOICES = (
+        ('Vanguard', 'Vanguard'),
+        ('Assassin', 'Assassin'),
+        ('Ranger', 'Ranger'),
+        ('Mage', 'Mage'),
+    )
+    player_class = models.CharField(max_length=50, choices=PLAYER_CLASS_CHOICES, null=True, blank=True)
 
     # Coaching Relationship
     # A recruit can have ONE coach. A coach has MANY recruits.

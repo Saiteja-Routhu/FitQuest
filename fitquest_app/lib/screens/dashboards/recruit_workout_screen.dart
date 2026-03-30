@@ -557,6 +557,7 @@ class _RecruitPlanDetailScreenState extends State<RecruitPlanDetailScreen>
   void _openSetLogger(Map<String, dynamic> ex, String planName) async {
     final exData = ex['exercise'] as Map<String, dynamic>? ?? {};
     final name = exData['name']?.toString() ?? 'Exercise';
+    final muscleGroup = exData['muscle_group']?.toString() ?? '';
     final todayCount = _setCountMap[name] ?? 0;
 
     await showModalBottomSheet(
@@ -565,6 +566,7 @@ class _RecruitPlanDetailScreenState extends State<RecruitPlanDetailScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => _SetLogSheet(
         exerciseName: name,
+        muscleGroup: muscleGroup,
         planName: planName,
         nextSetNumber: todayCount + 1,
         userData: widget.userData,
@@ -885,6 +887,7 @@ class _DayView extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════════
 class _SetLogSheet extends StatefulWidget {
   final String exerciseName;
+  final String muscleGroup;
   final String planName;
   final int nextSetNumber;
   final Map<String, dynamic> userData;
@@ -893,6 +896,7 @@ class _SetLogSheet extends StatefulWidget {
 
   const _SetLogSheet({
     required this.exerciseName,
+    required this.muscleGroup,
     required this.planName,
     required this.nextSetNumber,
     required this.userData,
@@ -907,10 +911,14 @@ class _SetLogSheet extends StatefulWidget {
 class _SetLogSheetState extends State<_SetLogSheet> {
   int _reps = 10;
   double? _weightKg;
+  double? _incline;
+  double? _speed;
   String _effectiveness = 'Just Right';
   String _setType = 'Regular';
   bool _saving = false;
   final _weightCtrl = TextEditingController();
+  final _inclineCtrl = TextEditingController();
+  final _speedCtrl = TextEditingController();
 
   static const _effectivenessOptions = [
     'Too Easy',
@@ -924,6 +932,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
   @override
   void dispose() {
     _weightCtrl.dispose();
+    _inclineCtrl.dispose();
+    _speedCtrl.dispose();
     super.dispose();
   }
 
@@ -938,6 +948,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
           'workout_plan_name': widget.planName,
           'reps': _reps,
           'weight_kg': _weightKg,
+          'treadmill_incline': _incline,
+          'treadmill_speed': _speed,
           'effectiveness': _effectiveness,
           'set_type': _setType,
         },
@@ -1064,6 +1076,41 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                   color: FQColors.muted, size: 18),
             ),
           ),
+
+          if (widget.muscleGroup == 'Cardio') ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _inclineCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (v) => _incline = double.tryParse(v),
+                  decoration: const InputDecoration(
+                    labelText: 'Incline (%)',
+                    labelStyle: TextStyle(color: FQColors.muted),
+                    prefixIcon: Icon(Icons.terrain,
+                        color: FQColors.muted, size: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _speedCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (v) => _speed = double.tryParse(v),
+                  decoration: const InputDecoration(
+                    labelText: 'Speed (km/h)',
+                    labelStyle: TextStyle(color: FQColors.muted),
+                    prefixIcon: Icon(Icons.speed,
+                        color: FQColors.muted, size: 18),
+                  ),
+                ),
+              ),
+            ]),
+          ],
 
           // Effectiveness
           const SizedBox(height: 16),

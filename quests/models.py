@@ -58,3 +58,32 @@ class DailyQuestCompletion(models.Model):
 
     def __str__(self):
         return f'{self.user.username} — {self.source_type}:{self.source_id} on {self.date}'
+
+
+class Guild(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    members = models.ManyToManyField(CustomUser, related_name='guilds', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+class CoOpQuest(models.Model):
+    METRIC_CHOICES = [
+        ('steps', 'Total Steps'),
+        ('weight', 'Total Weight Lifted (kg)'),
+    ]
+    guild = models.ForeignKey(Guild, on_delete=models.CASCADE, related_name='active_quests')
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    target_metric = models.CharField(max_length=20, choices=METRIC_CHOICES)
+    target_value = models.IntegerField()
+    current_progress = models.IntegerField(default=0)
+    deadline = models.DateTimeField()
+    is_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.title} for {self.guild.name}'

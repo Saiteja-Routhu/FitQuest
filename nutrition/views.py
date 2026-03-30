@@ -360,3 +360,60 @@ class AthleteOwnDietPlansView(generics.ListAPIView):
         return DietPlan.objects.filter(
             coach__isnull=True, assigned_to=self.request.user
         ).prefetch_related('meals__items__food_item', 'supplements')
+
+# 16. ATHLETE: Supplements Tracking
+from .models import SupplementLog
+from datetime import date as date_today
+
+class SupplementLogView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        date_str = request.query_params.get('date')
+        if not date_str:
+            date_str = date_today.today().isoformat()
+            
+        logs = SupplementLog.objects.filter(user=request.user, date=date_str)
+        return Response([{
+            'id': log.id,
+            'supplement_name': log.supplement_name,
+            'target_time': str(log.target_time) if log.target_time else None,
+            'is_taken': log.is_taken,
+        } for log in logs])
+
+    def post(self, request):
+        date_str = request.data.get('date', date_today.today().isoformat())
+        name = request.data.get('supplement_name')
+        
+        if not name:
+            return Response({'error': 'supplement_name required'}, status=400)
+            
+        log, created = SupplementLog.objects.get_or_create(
+            user=request.user,
+            supplement_name=name,
+            date=date_str
+        )
+        
+        if 'is_taken' in request.data:
+            log.is_taken = request.data['is_taken']
+        if 'target_time' in request.data:
+            log.target_time = request.data['target_time']
+            
+        log.save()
+        return Response({
+            'id': log.id,
+            'supplement_name': log.supplement_name,
+            'target_time': str(log.target_time) if log.target_time else None,
+            'is_taken': log.is_taken,
+        })
+        
+    def delete(self, request):
+        log_id = request.data.get('id')
+        if not log_id:
+            return Response({'error': 'id required'}, status=400)
+        try:
+            log = SupplementLog.objects.get(id=log_id, user=request.user)
+            log.delete()
+            return Response({'success': True})
+        except SupplementLog.DoesNotExist:
+            return Response({'error': 'not found'}, status=404)

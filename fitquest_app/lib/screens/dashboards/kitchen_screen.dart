@@ -28,7 +28,7 @@ class _KitchenScreenState extends State<KitchenScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadPlans();
   }
 
@@ -73,32 +73,36 @@ class _KitchenScreenState extends State<KitchenScreen>
           tabs: const [
             Tab(text: 'MEAL PLANS'),
             Tab(text: 'RECIPES'),
+            Tab(text: 'SUPPLEMENTS'),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          if (_tabController.index == 0) {
-            final res = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => DietBuilderScreen(
-                        userData: widget.userData, password: widget.password)));
-            if (res == true) _loadPlans();
-          } else {
-            _recipesKey.currentState?._showBuilder();
-          }
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, _) {
+          if (_tabController.index == 2) return const SizedBox.shrink();
+          return FloatingActionButton.extended(
+            onPressed: () async {
+              if (_tabController.index == 0) {
+                final res = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => DietBuilderScreen(
+                            userData: widget.userData, password: widget.password)));
+                if (res == true) _loadPlans();
+              } else {
+                _recipesKey.currentState?._showBuilder();
+              }
+            },
+            backgroundColor: FQColors.green,
+            icon: const Icon(Icons.add, color: Colors.black),
+            label: Text(
+              _tabController.index == 0 ? 'NEW MEAL PLAN' : 'NEW RECIPE',
+              style: GoogleFonts.rajdhani(
+                  color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+          );
         },
-        backgroundColor: FQColors.green,
-        icon: const Icon(Icons.add, color: Colors.black),
-        label: AnimatedBuilder(
-          animation: _tabController,
-          builder: (_, __) => Text(
-            _tabController.index == 0 ? 'NEW MEAL PLAN' : 'NEW RECIPE',
-            style: GoogleFonts.rajdhani(
-                color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-        ),
       ),
       body: TabBarView(
         controller: _tabController,
@@ -115,6 +119,8 @@ class _KitchenScreenState extends State<KitchenScreen>
                     ),
           // Recipes tab
           RecipesTab(key: _recipesKey, userData: widget.userData, password: widget.password),
+          // Supplements tab
+          SupplementsTab(userData: widget.userData, password: widget.password),
         ],
       ),
     );
@@ -2111,6 +2117,154 @@ class _PantryPickerSheetState extends State<_PantryPickerSheet> {
                 ),
         ),
       ]),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 9.  SUPPLEMENTS TAB
+// ══════════════════════════════════════════════════════════════════════════════
+class SupplementsTab extends StatefulWidget {
+  final Map<String, dynamic> userData;
+  final String password;
+  const SupplementsTab({super.key, required this.userData, required this.password});
+
+  @override
+  State<SupplementsTab> createState() => _SupplementsTabState();
+}
+
+class _SupplementsTabState extends State<SupplementsTab> {
+  List<dynamic> _logs = [];
+  bool _loading = true;
+  final _nameCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() async {
+    try {
+      final now = DateTime.now();
+      final dateStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      final data = await NutritionService.fetchSupplementLogs(
+          widget.userData['username'], widget.password, dateStr);
+      if (mounted) setState(() { _logs = data; _loading = false; });
+    } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  void _toggle(Map<String, dynamic> log) async {
+    try {
+      final now = DateTime.now();
+      final dateStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      await NutritionService.toggleSupplementLog(
+          widget.userData['username'], widget.password,
+          dateStr, log['supplement_name'], !(log['is_taken'] ?? false));
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _add() async {
+    if (_nameCtrl.text.isEmpty) return;
+    try {
+      final now = DateTime.now();
+      final dateStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      await NutritionService.toggleSupplementLog(
+          widget.userData['username'], widget.password,
+          dateStr, _nameCtrl.text, false);
+      _nameCtrl.clear();
+      _load();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('DAILY SUPPLEMENTS', style: GoogleFonts.rajdhani(
+                  color: FQColors.gold, fontSize: 18,
+                  fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const Text('Don\'t forget your potions!',
+                  style: TextStyle(color: FQColors.muted, fontSize: 12)),
+            ]),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => _showAddDialog(),
+            icon: const Icon(Icons.add, size: 16, color: Colors.black),
+            label: const Text('ADD', style: TextStyle(color: Colors.black)),
+            style: ElevatedButton.styleFrom(backgroundColor: FQColors.gold),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: FQColors.gold))
+            : _logs.isEmpty
+                ? Center(child: Text('No supplements scheduled', style: const TextStyle(color: FQColors.muted)))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _logs.length,
+                    itemBuilder: (_, i) {
+                      final log = _logs[i];
+                      final taken = log['is_taken'] == true;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: FQColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: taken ? FQColors.green.withOpacity(0.5) : FQColors.border),
+                        ),
+                        child: CheckboxListTile(
+                          value: taken,
+                          onChanged: (_) => _toggle(log),
+                          activeColor: FQColors.green,
+                          checkColor: Colors.black,
+                          title: Text(log['supplement_name'],
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: taken ? TextDecoration.lineThrough : null)),
+                          subtitle: log['target_time'] != null
+                              ? Text('Target: ${log['target_time']}',
+                                  style: const TextStyle(color: FQColors.muted, fontSize: 12))
+                              : null,
+                          secondary: Icon(Icons.medication_liquid_outlined,
+                              color: taken ? FQColors.green : FQColors.gold),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    ]);
+  }
+
+  void _showAddDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: FQColors.surface,
+        title: Text('SCHEDULE SUPPLEMENT', style: GoogleFonts.rajdhani(color: FQColors.gold, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: _nameCtrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(labelText: 'Name (e.g. Creatine, Whey)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL', style: const TextStyle(color: FQColors.muted))),
+          ElevatedButton(onPressed: _add, style: ElevatedButton.styleFrom(backgroundColor: FQColors.gold, foregroundColor: Colors.black), child: const Text('ADD')),
+        ],
+      ),
     );
   }
 }

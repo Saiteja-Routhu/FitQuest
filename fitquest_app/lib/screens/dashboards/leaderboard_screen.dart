@@ -87,6 +87,7 @@ class _LeaderboardTile extends StatelessWidget {
     final xp    = (athlete['xp'] ?? 0) as int;
     final level = (athlete['level'] ?? 1) as int;
     final coins = (athlete['coins'] ?? 0) as int;
+    final playerClass = athlete['player_class']?.toString();
     final xpProgress = (xp % 500) / 500.0;
 
     return Container(
@@ -136,9 +137,29 @@ class _LeaderboardTile extends StatelessWidget {
               Text(athlete['username'],
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text('Lv.$level  •  $xp XP',
-                  style: const TextStyle(color: FQColors.muted, fontSize: 11)),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text('Lv.$level  •  $xp XP',
+                      style: const TextStyle(color: FQColors.muted, fontSize: 11)),
+                  if (playerClass != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: FQColors.cyan.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: FQColors.cyan.withOpacity(0.3)),
+                      ),
+                      child: Text(playerClass.toUpperCase(),
+                          style: GoogleFonts.rajdhani(
+                              color: FQColors.cyan,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 9)),
+                    ),
+                  ],
+                ],
+              ),
               const SizedBox(height: 6),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),

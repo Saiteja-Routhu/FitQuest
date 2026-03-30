@@ -1,3 +1,4 @@
+from django.conf import settings
 from datetime import date as date_today
 from django.db import models
 from users.models import CustomUser
@@ -138,3 +139,18 @@ class MealCompletion(models.Model):
 
     def __str__(self):
         return f"{self.user.username} — {self.meal_name} on {self.date}"
+
+
+# 5. SUPPLEMENTS
+class SupplementLog(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='supplements')
+    supplement_name = models.CharField(max_length=100)
+    target_time = models.TimeField(null=True, blank=True)
+    is_taken = models.BooleanField(default=False)
+    date = models.DateField(default=date_today)
+
+    class Meta:
+        unique_together = ('user', 'supplement_name', 'date')
+
+    def __str__(self):
+        return f"{self.supplement_name} - {self.user.username} ({self.date})"

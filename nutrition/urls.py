@@ -4,7 +4,7 @@ from .views import (
     AssignDietView, UpdateDietPlanView, UpdateMealView, RecruitScheduleView,
     RecipeListCreateView, RecipeDeleteView, RecruitAssignedDietPlansView,
     MyScheduleView, CompleteMealView, MealCompletionsListView, MealCompletionDeleteView,
-    AthleteOwnDietPlansView,
+    AthleteOwnDietPlansView, SupplementLogView
 )
 
 urlpatterns = [
@@ -30,4 +30,6 @@ urlpatterns = [
     path('meal-completions/', MealCompletionsListView.as_view(), name='meal-completions'),
     path('meal-completions/<int:pk>/', MealCompletionDeleteView.as_view(), name='meal-completion-delete'),
     path('my-own-diet/', AthleteOwnDietPlansView.as_view(), name='athlete-own-diet-plans'),
+    
+    path('supplement-logs/', SupplementLogView.as_view(), name='supplement-logs'),
 ]

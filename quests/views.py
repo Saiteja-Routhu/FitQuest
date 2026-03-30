@@ -3,9 +3,46 @@ from datetime import date
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Quest, QuestCompletion, DailyQuestCompletion
+from .models import Quest, QuestCompletion, DailyQuestCompletion, Guild, CoOpQuest
 from .serializers import QuestSerializer, QuestCompletionSerializer, AssignedQuestSerializer
 from users.models import CustomUser
+
+
+# ── Recruit: Guild Hub (View their guild and active quests) ──────────────────
+class GuildQuestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        guilds = request.user.guilds.all()
+        if not guilds.exists():
+            return Response({'has_guild': False})
+
+        guild = guilds.first() # Assume one guild for now
+        active_quests = CoOpQuest.objects.filter(
+            guild=guild,
+            deadline__gt=timezone.now(),
+            is_completed=False
+        ).order_by('deadline')
+
+        quests_data = []
+        for q in active_quests:
+            quests_data.append({
+                'id': q.id,
+                'title': q.title,
+                'description': q.description,
+                'target_metric': q.target_metric,
+                'target_value': q.target_value,
+                'current_progress': q.current_progress,
+                'deadline': str(q.deadline),
+                'progress_percent': min(100, (q.current_progress / q.target_value) * 100) if q.target_value > 0 else 0
+            })
+
+        return Response({
+            'has_guild': True,
+            'guild_name': guild.name,
+            'guild_description': guild.description,
+            'active_quests': quests_data
+        })
 
 
 # ── Coach: list all their quests ─────────────────────────────────────────────

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.utils import timezone
+from django.db.models import F
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +11,29 @@ from rest_framework.views import APIView
 from .models import WorkoutLog, DailyActivity, BodyProgressEntry, UserActivityStatus, WorkoutSetLog
 from .serializers import WorkoutLogSerializer
 from users.models import CustomUser
+from quests.models import Guild, CoOpQuest
+
+
+def contribute_to_guild_quest(user, metric, amount):
+    """Adds progress to all active Co-Op quests for the user's guilds."""
+    now = timezone.now()
+    guilds = user.guilds.all()
+    if not guilds.exists():
+        return
+
+    active_quests = CoOpQuest.objects.filter(
+        guild__in=guilds,
+        target_metric=metric,
+        deadline__gt=now,
+        is_completed=False
+    )
+
+    for quest in active_quests:
+        quest.current_progress = F('current_progress') + amount
+        quest.save()
+        # Note: We might want a check here to mark as completed if target met,
+        # but quest.refresh_from_db() would be needed because of F expressions.
+        # For simplicity in this step, we just increment.
 
 
 class WorkoutLogViewSet(viewsets.ModelViewSet):
@@ -78,7 +102,11 @@ class DailyActivityView(APIView):
         if 'water_goal_ml' in request.data:
             a.water_goal_ml = int(request.data['water_goal_ml'])
         if 'steps' in request.data:
-            a.steps = int(request.data['steps'])
+            new_steps = int(request.data['steps'])
+            diff = new_steps - a.steps
+            if diff > 0:
+                contribute_to_guild_quest(request.user, 'steps', diff)
+            a.steps = new_steps
         if 'step_goal' in request.data:
             a.step_goal = int(request.data['step_goal'])
         a.save()
@@ -414,8 +442,12 @@ class LogSetView(APIView):
         plan_name = request.data.get('workout_plan_name', '')
         reps = request.data.get('reps')
         weight_kg = request.data.get('weight_kg')
+        treadmill_incline = request.data.get('treadmill_incline')
+        treadmill_speed = request.data.get('treadmill_speed')
         effectiveness = request.data.get('effectiveness', 'Just Right')
         set_type = request.data.get('set_type', 'Regular')
+        video_url = request.data.get('video_url')
+        pose_data = request.data.get('pose_data')
 
         if not exercise_name or reps is None:
             return Response({'error': 'exercise_name and reps required'}, status=400)
@@ -436,8 +468,19 @@ class LogSetView(APIView):
             set_number=set_number,
             reps=int(reps),
             weight_kg=float(weight_kg) if weight_kg is not None else None,
+            treadmill_incline=float(treadmill_incline) if treadmill_incline is not None else None,
+            treadmill_speed=float(treadmill_speed) if treadmill_speed is not None else None,
             effectiveness=effectiveness,
+            video_url=video_url,
+            pose_data=pose_data,
         )
+
+        # Contribution to Guild Co-Op Quest (Weight)
+        if weight_kg and int(reps) > 0:
+            # Only count if it's not a cardio exercise (treadmill metrics would be present)
+            if not treadmill_incline and not treadmill_speed:
+                volume = int(float(weight_kg) * int(reps))
+                contribute_to_guild_quest(request.user, 'weight', volume)
 
         today_count = WorkoutSetLog.objects.filter(
             user=request.user,
@@ -480,7 +523,11 @@ class MySetLogsView(APIView):
             'set_number': l.set_number,
             'reps': l.reps,
             'weight_kg': l.weight_kg,
+            'treadmill_incline': l.treadmill_incline,
+            'treadmill_speed': l.treadmill_speed,
             'effectiveness': l.effectiveness,
+            'video_url': l.video_url,
+            'pose_data': l.pose_data,
             'logged_at': str(l.logged_at),
         } for l in logs])
 
@@ -724,7 +771,11 @@ class SelfTransformationsView(APIView):
             'set_number': l.set_number,
             'reps': l.reps,
             'weight_kg': l.weight_kg,
+            'treadmill_incline': l.treadmill_incline,
+            'treadmill_speed': l.treadmill_speed,
             'effectiveness': l.effectiveness,
+            'video_url': l.video_url,
+            'pose_data': l.pose_data,
             'logged_at': str(l.logged_at),
         } for l in set_logs_qs]
 

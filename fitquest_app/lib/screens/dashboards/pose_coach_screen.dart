@@ -112,6 +112,16 @@ class _PoseCoachScreenState extends State<PoseCoachScreen> {
   String _hint = 'TAP START to begin';
   _Exercise? _selectedExercise;
 
+  // Performance & Smoothing
+  int _frameCount = 0;
+  final Map<PoseLandmarkType, List<Offset>> _smaBuffers = {};
+  static const int _smaSize = 5;
+
+  // Recording & Pose Data
+  bool _isRecording = false;
+  final List<Map<String, dynamic>> _recordedPoseData = [];
+  DateTime? _recordingStartTime;
+
   // Rep counter state
   int _repCount = 0;
   bool _inDownPhase = false;
@@ -170,65 +180,188 @@ class _PoseCoachScreenState extends State<PoseCoachScreen> {
       _plankSeconds = 0;
       _inDownPhase = false;
       _phase = '';
+      _frameCount = 0;
+      _smaBuffers.clear();
+      _recordedPoseData.clear();
     });
     _initCamera();
   }
 
-  void _toggleDetection() {
+  void _toggleDetection() async {
     if (_detecting) {
-      _stopDetection();
+      await _stopDetection();
     } else {
-      _startDetection();
+      await _startDetection();
     }
   }
 
-  void _startDetection() {
+  Future<void> _startDetection() async {
     if (_cameraController == null || !_cameraReady) return;
-    setState(() {
-      _detecting = true;
-      _hint = 'Detecting...';
-      _repCount = 0;
-      _plankSeconds = 0;
-      _inDownPhase = false;
-    });
-    // Start plank timer if plank exercise
-    if (_selectedExercise?.isPlank == true) {
-      _plankTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted && _detecting) setState(() => _plankSeconds++);
+    
+    try {
+      await _cameraController!.startVideoRecording();
+      _recordingStartTime = DateTime.now();
+      _recordedPoseData.clear();
+      
+      setState(() {
+        _detecting = true;
+        _isRecording = true;
+        _hint = 'Detecting & Recording...';
+        _repCount = 0;
+        _plankSeconds = 0;
+        _inDownPhase = false;
       });
-    }
-    _startHeartbeat();
-    _cameraController!.startImageStream((image) async {
-      if (_isDetecting) return;
-      _isDetecting = true;
-      try {
-        final inputImage = _convertToInputImage(image);
-        final poses = await _poseDetector!.processImage(inputImage);
-        if (mounted) {
-          setState(() {
-            _poses = poses;
-            final result = _analyzeExercise(poses);
-            _hint = result.hint;
-            _phase = result.phase;
-            if (result.countRep) _repCount++;
-          });
-        }
-      } catch (_) {
-      } finally {
-        _isDetecting = false;
+
+      if (_selectedExercise?.isPlank == true) {
+        _plankTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted && _detecting) setState(() => _plankSeconds++);
+        });
       }
-    });
+      _startHeartbeat();
+
+      _cameraController!.startImageStream((image) async {
+        _frameCount++;
+        // Throttle: Process only every 3rd frame (~10 FPS assuming 30 FPS stream)
+        if (_frameCount % 3 != 0) return;
+        
+        if (_isDetecting) return;
+        _isDetecting = true;
+        try {
+          final inputImage = _convertToInputImage(image);
+          final poses = await _poseDetector!.processImage(inputImage);
+          
+          if (poses.isNotEmpty) {
+            final smoothedPose = _smoothPose(poses.first);
+            
+            // Record pose data with timestamp
+            if (_isRecording) {
+              final timestamp = DateTime.now().difference(_recordingStartTime!).inMilliseconds;
+              _recordPoseFrame(smoothedPose, timestamp);
+            }
+
+            if (mounted) {
+              setState(() {
+                _poses = [smoothedPose];
+                final result = _analyzeExercise([smoothedPose]);
+                _hint = result.hint;
+                _phase = result.phase;
+                if (result.countRep) _repCount++;
+              });
+            }
+          }
+        } catch (_) {
+        } finally {
+          _isDetecting = false;
+        }
+      });
+    } catch (e) {
+      print("Error starting detection: $e");
+    }
   }
 
-  void _stopDetection() {
-    _cameraController?.stopImageStream();
+  Pose _smoothPose(Pose originalPose) {
+    final Map<PoseLandmarkType, PoseLandmark> smoothedLandmarks = {};
+    
+    originalPose.landmarks.forEach((type, landmark) {
+      if (!_smaBuffers.containsKey(type)) {
+        _smaBuffers[type] = [];
+      }
+      
+      final buffer = _smaBuffers[type]!;
+      buffer.add(Offset(landmark.x, landmark.y));
+      if (buffer.length > _smaSize) {
+        buffer.removeAt(0);
+      }
+      
+      double avgX = 0;
+      double avgY = 0;
+      for (var p in buffer) {
+        avgX += p.dx;
+        avgY += p.dy;
+      }
+      avgX /= buffer.length;
+      avgY /= buffer.length;
+      
+      smoothedLandmarks[type] = PoseLandmark(
+        type: type,
+        x: avgX,
+        y: avgY,
+        z: landmark.z,
+        likelihood: landmark.likelihood,
+      );
+    });
+    
+    return Pose(landmarks: smoothedLandmarks);
+  }
+
+  void _recordPoseFrame(Pose pose, int timestampMs) {
+    final Map<String, dynamic> frameData = {
+      't': timestampMs,
+      'p': pose.landmarks.map((type, lm) => MapEntry(type.name, [lm.x.toInt(), lm.y.toInt()])),
+    };
+    _recordedPoseData.add(frameData);
+  }
+
+  Future<void> _stopDetection() async {
+    await _cameraController?.stopImageStream();
     _heartbeatTimer?.cancel();
     _plankTimer?.cancel();
+    
+    XFile? videoFile;
+    if (_isRecording) {
+      videoFile = await _cameraController?.stopVideoRecording();
+    }
+
     setState(() {
       _detecting = false;
+      _isRecording = false;
       _poses = [];
-      _hint = 'TAP START to begin';
+      _hint = 'Saving results...';
       _phase = '';
+    });
+
+    if (videoFile != null) {
+      _saveSetResults(videoFile);
+    }
+  }
+
+  void _saveSetResults(XFile videoFile) async {
+    // In a real app, you'd upload videoFile.path to Cloudinary here
+    // For this implementation, we'll send the pose_data to Django.
+    if (widget.userData == null || widget.password == null) return;
+
+    try {
+      final String poseJson = jsonEncode(_recordedPoseData);
+      
+      await AnalyticsService.logSet(
+        widget.userData!['username'],
+        widget.password!,
+        {
+          'exercise_name': _selectedExercise!.name,
+          'reps': _selectedExercise!.isPlank ? 0 : _repCount,
+          'weight_kg': null,
+          'effectiveness': 'Just Right',
+          'set_type': 'Regular',
+          'pose_data': poseJson,
+          'video_url': 'https://res.cloudinary.com/demo/video/upload/v1/sample_set.mp4', // Mock URL
+        }
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Workout set saved successfully!'), backgroundColor: FQColors.green)
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e'), backgroundColor: FQColors.red)
+        );
+      }
+    }
+
+    setState(() {
+      _hint = 'TAP START to begin';
     });
   }
 

@@ -8,6 +8,7 @@ urlpatterns = [
     path('my-quests/',         views.MyQuestsView.as_view(),           name='my-quests'),
     path('complete/',          views.CompleteQuestView.as_view(),      name='complete-quest'),
     path('today/',             views.TodayQuestsView.as_view(),        name='today-quests'),
+    path('guild-quests/',      views.GuildQuestView.as_view(),         name='guild-quests'),
     path('today/complete/',    views.CompleteDailyQuestView.as_view(), name='complete-daily-quest'),
     path('<int:pk>/',          views.DeleteQuestView.as_view(),        name='delete-quest'),
 ]

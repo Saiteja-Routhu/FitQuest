@@ -6,9 +6,9 @@ class CustomUserAdmin(UserAdmin):
     # Add our new fields to the Admin UI
     fieldsets = UserAdmin.fieldsets + (
         ('Role & Stats', {'fields': ('role', 'height', 'weight', 'activity_level', 'goal')}),
-        ('Game Stats', {'fields': ('level', 'xp', 'coins')}),
+        ('Game Stats', {'fields': ('level', 'xp', 'coin_balance', 'player_class')}),
     )
-    list_display = ['username', 'email', 'role', 'level', 'coins']
+    list_display = ['username', 'email', 'role', 'level', 'coin_balance', 'player_class']
     list_filter = ['role', 'level']
 
 class CoachKeyAdmin(admin.ModelAdmin):
